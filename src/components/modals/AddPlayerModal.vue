@@ -109,10 +109,8 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { useWhitelistStore } from '../../stores/whitelist.js'
 
-const emit = defineEmits(['close', 'success'])
-const whitelistStore = useWhitelistStore()
+const emit = defineEmits(['close', 'submit'])
 
 const isLoading = ref(false)
 const errorMessage = ref('')
@@ -168,20 +166,17 @@ async function handleSubmit() {
   errorMessage.value = ''
   
   try {
-    const result = await whitelistStore.addPlayer({
+    // 直接emit数据给父组件处理,而不是在modal中调用store
+    const playerData = {
       name: form.name.trim(),
       uuid: form.uuid.trim() ? form.uuid.trim().toLowerCase() : undefined,
       notes: form.notes.trim() || undefined
-    })
-    
-    if (result.success) {
-      emit('success')
-    } else {
-      errorMessage.value = result.error
     }
+    
+    emit('submit', playerData)
+    isLoading.value = false
   } catch (err) {
     errorMessage.value = '添加失败: ' + err.message
-  } finally {
     isLoading.value = false
   }
 }
