@@ -15,6 +15,8 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       open: true,
+      // 配置 HTML5 History 模式的回退
+      historyApiFallback: true,
       proxy: {
         '/api': {
           target: 'https://api.mcwok.cn',
