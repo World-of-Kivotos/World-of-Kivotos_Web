@@ -1,94 +1,118 @@
 <template>
-  <div class="modal modal-open">
-    <div class="modal-box">
-      <h3 class="font-bold text-lg mb-4">添加玩家到白名单</h3>
+  <!-- 透明背景遮罩 -->
+  <Transition name="modal-backdrop">
+    <div 
+      class="fixed inset-0 z-[100] flex items-center justify-center p-4 modal-backdrop"
+      @click.self="$emit('close')"
+    >
+      <!-- 白色模态框 -->
+      <div 
+        class="relative w-full max-w-md max-h-[85vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col modal-content"
+        @click.stop
+      >
+
+      <!-- 固定头部 -->
+      <div class="flex-shrink-0 px-8 pt-8 pb-4">
+        <div class="text-center">
+          <h3 class="text-2xl font-bold text-gray-800 mb-2">添加玩家到白名单</h3>
+          <p class="text-sm text-gray-600">填写玩家信息以添加到白名单</p>
+        </div>
+      </div>
       
-      <form @submit.prevent="handleSubmit">
-        <div class="form-control mb-4">
-          <label class="label">
-            <span class="label-text">玩家名称 *</span>
-          </label>
-          <input 
-            type="text" 
-            placeholder="输入玩家名称" 
-            class="input input-bordered"
-            v-model="form.name"
-            :class="{ 'input-error': errors.name }"
-            required
-          />
-          <label v-if="errors.name" class="label">
-            <span class="label-text-alt text-error">{{ errors.name }}</span>
-          </label>
-        </div>
+      <!-- 可滚动内容区域 -->
+      <div class="flex-1 overflow-y-auto px-8">
+        <form @submit.prevent="handleSubmit" class="space-y-5" id="add-player-form">
+          <!-- 玩家名称输入框 -->
+          <div class="space-y-2">
+            <label class="text-sm text-gray-700 font-medium">玩家名称 *</label>
+            <div class="relative">
+              <input 
+                type="text" 
+                placeholder="请输入玩家游戏名称"
+                v-model="form.name"
+                :disabled="isLoading"
+                :class="[
+                  'w-full px-4 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all disabled:opacity-50 disabled:bg-gray-100',
+                  errors.name ? 'border-red-400 focus:ring-red-400' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                ]"
+                required
+              />
+              <p class="mt-1.5 text-xs text-gray-500">支持中英文及数字</p>
+            </div>
+            <p v-if="errors.name" class="text-xs text-red-500">{{ errors.name }}</p>
+          </div>
 
-        <div class="form-control mb-4">
-          <label class="label">
-            <span class="label-text">玩家UUID *</span>
-          </label>
-          <input 
-            type="text" 
-            placeholder="输入玩家UUID" 
-            class="input input-bordered"
-            v-model="form.uuid"
-            :class="{ 'input-error': errors.uuid }"
-            required
-          />
-          <label v-if="errors.uuid" class="label">
-            <span class="label-text-alt text-error">{{ errors.uuid }}</span>
-          </label>
-          <label class="label">
-            <span class="label-text-alt">格式: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</span>
-          </label>
-        </div>
+          <!-- 玩家UUID输入框 -->
+          <div class="space-y-2">
+            <label class="text-sm text-gray-700 font-medium">玩家UUID (可选)</label>
+            <div class="relative">
+              <input 
+                type="text" 
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                v-model="form.uuid"
+                :disabled="isLoading"
+                :class="[
+                  'w-full px-4 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all disabled:opacity-50 disabled:bg-gray-100 font-mono text-sm',
+                  errors.uuid ? 'border-red-400 focus:ring-red-400' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                ]"
+              />
+              <p class="mt-1.5 text-xs text-gray-500">留空时将在玩家首次登录时自动获取</p>
+            </div>
+            <p v-if="errors.uuid" class="text-xs text-red-500">{{ errors.uuid }}</p>
+          </div>
 
-        <div class="form-control mb-4">
-          <label class="label">
-            <span class="label-text">备注</span>
-          </label>
-          <textarea 
-            class="textarea textarea-bordered" 
-            placeholder="添加备注信息（可选）"
-            v-model="form.notes"
-            rows="3"
-          ></textarea>
-        </div>
+          <!-- 备注输入框 -->
+          <div class="space-y-2">
+            <label class="text-sm text-gray-700 font-medium">备注 (可选)</label>
+            <textarea 
+              placeholder="添加备注信息,例如:审批时间、推荐人等"
+              v-model="form.notes"
+              :disabled="isLoading"
+              rows="3"
+              class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all disabled:opacity-50 disabled:bg-gray-100 resize-none"
+            ></textarea>
+            <p class="text-xs text-gray-500">最多200个字符</p>
+          </div>
 
-        <!-- 错误提示 -->
-        <div v-if="errorMessage" class="alert alert-error mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span>{{ errorMessage }}</span>
-        </div>
+          <!-- 错误提示 -->
+          <div v-if="errorMessage" class="bg-red-50 border border-red-200 rounded-lg p-3 text-red-600 text-sm">
+            {{ errorMessage }}
+          </div>
+        </form>
+      </div>
 
-        <div class="modal-action">
+      <!-- 固定底部按钮组 -->
+      <div class="flex-shrink-0 border-t border-gray-200 px-8 py-6">
+        <div class="flex gap-3">
           <button 
             type="button" 
-            class="btn btn-ghost"
             @click="$emit('close')"
             :disabled="isLoading"
+            class="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 transition-all disabled:opacity-50"
           >
             取消
           </button>
           <button 
-            type="submit" 
-            class="btn btn-primary"
-            :class="{ 'loading': isLoading }"
-            :disabled="isLoading"
+            type="submit"
+            form="add-player-form"
+            :disabled="isLoading || !form.name.trim()"
+            class="flex-1 py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
             {{ isLoading ? '添加中...' : '添加玩家' }}
           </button>
         </div>
-      </form>
+      </div>
+      </div>
     </div>
-  </div>
+  </Transition>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { addWhitelistEntry } from '../../stores/whitelist.js'
+import { useWhitelistStore } from '../../stores/whitelist.js'
 
 const emit = defineEmits(['close', 'success'])
+const whitelistStore = useWhitelistStore()
 
 const isLoading = ref(false)
 const errorMessage = ref('')
@@ -125,10 +149,8 @@ function validateForm() {
     isValid = false
   }
   
-  if (!form.uuid.trim()) {
-    errors.uuid = 'UUID不能为空'
-    isValid = false
-  } else if (!validateUUID(form.uuid)) {
+  // UUID是可选的,但如果填写了必须是有效格式
+  if (form.uuid.trim() && !validateUUID(form.uuid)) {
     errors.uuid = 'UUID格式不正确'
     isValid = false
   }
@@ -146,9 +168,9 @@ async function handleSubmit() {
   errorMessage.value = ''
   
   try {
-    const result = await addWhitelistEntry({
+    const result = await whitelistStore.addPlayer({
       name: form.name.trim(),
-      uuid: form.uuid.trim().toLowerCase(),
+      uuid: form.uuid.trim() ? form.uuid.trim().toLowerCase() : undefined,
       notes: form.notes.trim() || undefined
     })
     

@@ -1,150 +1,162 @@
-// 认证状态管理
-import { ref, reactive } from 'vue'
+import { defineStore } from 'pinia'
+import { ref, reactive, computed } from 'vue'
 import apiService from '../services/api.js'
 
-// 认证状态
-const isAuthenticated = ref(false)
-const adminPassword = ref('')
-const currentUser = reactive({
-  username: '',
-  role: 'admin'
-})
+export const useAuthStore = defineStore('auth', () => {
+  // 认证状态
+  const isAuthenticated = ref(false)
+  const userInfo = reactive({
+    username: '',
+    isAdmin: false
+  })
 
-// 登录状态持久化
-const AUTH_STORAGE_KEY = 'kivotos_auth'
+  // 消息状态
+  const errorMessage = ref('')
+  const successMessage = ref('')
+  const isLoading = ref(false)
+  
+  // 自动登出定时器
+  let autoLogoutTimer = null
+  const AUTO_LOGOUT_TIME = 5 * 60 * 1000 // 5分钟
 
-// 从本地存储恢复认证状态
-function restoreAuthState() {
-  try {
-    const stored = localStorage.getItem(AUTH_STORAGE_KEY)
-    if (stored) {
-      const authData = JSON.parse(stored)
-      if (authData.isAuthenticated && authData.adminPassword) {
-        isAuthenticated.value = true
-        adminPassword.value = authData.adminPassword
-        currentUser.username = authData.username || 'admin'
-        apiService.setAdminPassword(authData.adminPassword)
-      }
+  // 启动自动登出定时器
+  const startAutoLogoutTimer = () => {
+    // 清除之前的定时器
+    if (autoLogoutTimer) {
+      clearTimeout(autoLogoutTimer)
     }
-  } catch (error) {
-    console.error('恢复认证状态失败:', error)
-    clearAuthState()
-  }
-}
-
-// 保存认证状态到本地存储
-function saveAuthState() {
-  try {
-    const authData = {
-      isAuthenticated: isAuthenticated.value,
-      adminPassword: adminPassword.value,
-      username: currentUser.username,
-      timestamp: Date.now()
-    }
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData))
-  } catch (error) {
-    console.error('保存认证状态失败:', error)
-  }
-}
-
-// 清除认证状态
-function clearAuthState() {
-  isAuthenticated.value = false
-  adminPassword.value = ''
-  currentUser.username = ''
-  apiService.setAdminPassword(null)
-  localStorage.removeItem(AUTH_STORAGE_KEY)
-}
-
-// 管理员登录
-async function loginAsAdmin(password) {
-  try {
-    // 验证管理员密码
-    const isValid = await apiService.validateAdminPassword(password)
     
-    if (isValid) {
-      isAuthenticated.value = true
-      adminPassword.value = password
-      currentUser.username = 'admin'
-      currentUser.role = 'admin'
-      
-      // 保存认证状态
-      saveAuthState()
-      
-      return { success: true }
-    } else {
-      return { success: false, error: '管理员密码错误' }
-    }
-  } catch (error) {
-    console.error('登录失败:', error)
-    return { success: false, error: '登录失败，请检查网络连接和服务器状态' }
-  }
-}
-
-// 用户注册（使用令牌）
-async function registerWithToken(token, playerName, playerUuid) {
-  try {
-    const result = await apiService.registerUser(token, playerName, playerUuid)
-    
-    if (result.success) {
-      // 注册成功后，用户可以以普通用户身份登录
-      isAuthenticated.value = true
-      currentUser.username = playerName
-      currentUser.role = 'user'
-      
-      // 保存认证状态（不包含管理员密码）
-      const authData = {
-        isAuthenticated: true,
-        username: playerName,
-        role: 'user',
-        timestamp: Date.now()
-      }
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData))
-      
-      return { success: true, message: result.message }
-    } else {
-      return { success: false, error: result.error?.message || '注册失败' }
-    }
-  } catch (error) {
-    console.error('注册失败:', error)
-    return { success: false, error: '注册失败，请检查令牌是否有效' }
-  }
-}
-
-// 生成注册令牌（仅管理员）
-async function generateRegistrationToken(expiryHours = 24) {
-  if (!isAuthenticated.value || currentUser.role !== 'admin') {
-    return { success: false, error: '需要管理员权限' }
+    // 设置新的定时器
+    autoLogoutTimer = setTimeout(() => {
+      console.log('5分钟无操作,自动登出')
+      logout()
+    }, AUTO_LOGOUT_TIME)
   }
   
-  try {
-    const result = await apiService.generateToken(expiryHours)
-    return { success: true, token: result.data.token, expiryHours: result.data.expiryHours }
-  } catch (error) {
-    console.error('生成令牌失败:', error)
-    return { success: false, error: '生成令牌失败' }
+  // 重置自动登出定时器
+  const resetAutoLogoutTimer = () => {
+    if (isAuthenticated.value) {
+      startAutoLogoutTimer()
+    }
   }
-}
+  
+  // 从本地存储恢复状态 - 刷新页面时不保持登录状态
+  const initializeAuth = () => {
+    // 刷新页面时自动登出,不从localStorage恢复登录状态
+    isAuthenticated.value = false
+    userInfo.username = ''
+    userInfo.isAdmin = false
+    localStorage.removeItem('auth')
+  }
 
-// 退出登录
-function logout() {
-  clearAuthState()
-}
+  // 保存状态到本地存储
+  const saveAuthState = () => {
+    const authData = {
+      isAuthenticated: isAuthenticated.value,
+      userInfo: { ...userInfo }
+    }
+    localStorage.setItem('auth', JSON.stringify(authData))
+  }
 
-// 检查是否为管理员
-function isAdmin() {
-  return isAuthenticated.value && currentUser.role === 'admin'
-}
+  // 清除消息
+  const clearMessages = () => {
+    errorMessage.value = ''
+    successMessage.value = ''
+  }
 
-// 初始化时恢复认证状态
-restoreAuthState()
+  // 管理员登录
+  const adminLogin = async (username, password) => {
+    isLoading.value = true
+    clearMessages()
+    
+    try {
+      const result = await apiService.adminLogin(username, password)
+      
+      if (result.success) {
+        // 保存认证token
+        const authToken = result.data.token
+        localStorage.setItem('authToken', authToken)
+        
+        // 保存用户信息
+        isAuthenticated.value = true
+        userInfo.username = result.data.user.username
+        userInfo.isAdmin = result.data.user.isAdmin || result.data.user.isSuperAdmin
+        
+        successMessage.value = '登录成功'
+        
+        // 启动自动登出定时器
+        startAutoLogoutTimer()
+        
+        return { success: true }
+      } else {
+        errorMessage.value = result.error || '登录失败'
+        return { success: false, error: result.error }
+      }
+    } catch (error) {
+      errorMessage.value = '网络错误，请检查服务器连接'
+      return { success: false, error: '网络错误' }
+    } finally {
+      isLoading.value = false
+    }
+  }
 
-export {
-  isAuthenticated,
-  currentUser,
-  loginAsAdmin,
-  registerWithToken,
-  generateRegistrationToken,
-  logout,
-  isAdmin
-}
+  // 管理员注册
+  const adminRegister = async (username, password, token, displayName) => {
+    isLoading.value = true
+    clearMessages()
+    
+    try {
+      const result = await apiService.adminRegister(username, password, token, displayName)
+      
+      if (result.success) {
+        successMessage.value = '注册成功！请使用您的账号密码登录'
+        return { success: true }
+      } else {
+        errorMessage.value = result.error || '注册失败'
+        return { success: false, error: result.error }
+      }
+    } catch (error) {
+      errorMessage.value = '网络错误，请检查服务器连接'
+      return { success: false, error: '网络错误' }
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  // 登出
+  const logout = () => {
+    // 清除定时器
+    if (autoLogoutTimer) {
+      clearTimeout(autoLogoutTimer)
+      autoLogoutTimer = null
+    }
+    
+    // 清除认证token
+    localStorage.removeItem('authToken')
+    
+    isAuthenticated.value = false
+    userInfo.username = ''
+    userInfo.isAdmin = false
+    localStorage.removeItem('auth')
+    clearMessages()
+  }
+
+  // 初始化
+  initializeAuth()
+
+  return {
+    // 状态
+    isAuthenticated,
+    userInfo,
+    errorMessage,
+    successMessage,
+    isLoading,
+    
+    // 方法
+    clearMessages,
+    adminLogin,
+    adminRegister,
+    logout,
+    resetAutoLogoutTimer
+  }
+})

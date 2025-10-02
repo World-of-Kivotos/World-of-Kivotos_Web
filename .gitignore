@@ -16,6 +16,13 @@ build/
 .env.test.local
 .env.production.local
 
+# AG Grid Enterprise License
+# 排除包含许可证密钥的文件
+.env.license
+ag-grid-license.key
+license.key
+*.license
+
 # IDE and editor files
 .vscode/
 .idea/
@@ -101,3 +108,29 @@ temp/
 
 # Local Netlify folder
 .netlify
+
+# 敏感配置文件
+config/secrets.js
+config/private.js
+src/config/secrets.js
+src/config/private.js
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# 备份文件
+*.backup
+*.bak
+
+# 密钥和证书文件
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+
+# 用户特定配置
+.user.config
+user.config.js

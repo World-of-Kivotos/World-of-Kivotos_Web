@@ -10,6 +10,16 @@ export default defineConfig({
   ],
   server: {
     port: 3000,
-    open: true
+    open: true,
+    proxy: {
+      '/api': {
+        target: 'https://api.mcwok.cn',
+        changeOrigin: true,
+        secure: true,
+        headers: {
+          'X-API-Key': 'sk-J6WX2lVeMiJB9a4veklDVGNUe0brItoYt43tzaJtlQMKE41s9iidBkJlamfxL'
+        }
+      }
+    }
   }
 })

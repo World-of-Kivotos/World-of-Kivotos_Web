@@ -18,7 +18,12 @@
   "license": "ISC",
   "packageManager": "pnpm@10.17.1",
   "dependencies": {
-    "vue": "^3.5.22"
+    "ag-grid-community": "^34.2.0",
+    "ag-grid-enterprise": "^34.2.0",
+    "ag-grid-vue3": "^34.2.0",
+    "pinia": "^3.0.3",
+    "vue": "^3.5.22",
+    "vue-router": "^4.5.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.13",
