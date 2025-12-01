@@ -32,6 +32,12 @@ const menuItems = [
     activeIcon: 'ph:check-circle-fill',
   },
   {
+    id: 'survey',
+    label: '问卷管理',
+    icon: 'ph:note-pencil',
+    activeIcon: 'ph:note-pencil-fill',
+  },
+  {
     id: 'logs',
     label: '日志监控',
     icon: 'ph:chart-line-up',
