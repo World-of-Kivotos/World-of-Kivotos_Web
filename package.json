@@ -1,35 +1,44 @@
 {
-  "name": "World-of-Kivotos_Web",
-  "version": "1.0.0",
-  "description": "A Vue.js project with TailwindCSS v4 and DaisyUI",
+  "name": "world-of-kivotos-web",
+  "private": true,
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
   },
-  "keywords": [
-    "vue",
-    "daisyui",
-    "tailwindcss"
-  ],
-  "author": "",
-  "license": "ISC",
-  "packageManager": "pnpm@10.17.1",
   "dependencies": {
-    "ag-grid-community": "^34.2.0",
-    "ag-grid-enterprise": "^34.2.0",
-    "ag-grid-vue3": "^34.2.0",
-    "pinia": "^3.0.3",
-    "vue": "^3.5.22",
-    "vue-router": "^4.5.1"
+    "@tanstack/react-query": "^5.90.11",
+    "@tanstack/react-query-devtools": "^5.91.1",
+    "@tanstack/react-router": "^1.139.12",
+    "axios": "^1.13.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-hot-toast": "^2.6.0",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.13",
-    "@vitejs/plugin-vue": "^6.0.1",
-    "daisyui": "^5.1.26",
-    "tailwindcss": "^4.1.13",
-    "vite": "^7.1.7"
+    "@eslint/js": "^9.39.1",
+    "@tailwindcss/vite": "^4.1.17",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "autoprefixer": "^10.4.22",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "tailwindcss": "^4.1.17",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.4",
+    "vite": "npm:rolldown-vite@7.2.5"
+  },
+  "pnpm": {
+    "overrides": {
+      "vite": "npm:rolldown-vite@7.2.5"
+    }
   }
 }
