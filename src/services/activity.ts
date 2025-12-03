@@ -10,7 +10,7 @@ import type {
 } from '@/types/activity'
 
 // Quick-Survey API 基础 URL
-const SURVEY_API_URL = import.meta.env.VITE_SURVEY_API_URL || 'http://localhost:8000'
+const SURVEY_API_URL = import.meta.env.VITE_SURVEY_API_URL || 'http://localhost:8000/api/v1'
 
 // 创建 Quick-Survey axios 实例
 const surveyApi = axios.create({
