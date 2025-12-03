@@ -404,22 +404,152 @@ function AnswerCard({
   apiBase: string
   onImageClick: (url: string) => void
 }) {
-  const renderContent = () => {
-    const { content, question_type } = answer
-    const parsed = parseAnswerContent(content, question_type)
+  const { question_type, question_options } = answer
+  const parsed = parseAnswerContent(answer.content, question_type)
 
-    // 布尔类型
+  const renderContent = () => {
+    // 单选题 - 渲染所有选项，高亮用户选择
+    if (question_type === 'single' && question_options && question_options.length > 0) {
+      const selectedValue = typeof parsed.displayValue === 'string' ? parsed.displayValue : null
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {question_options.map((option) => {
+            const isSelected = option.value === selectedValue
+            return (
+              <div
+                key={option.value}
+                className={cn(
+                  'flex items-center gap-3 p-3 rounded-xl border transition-all',
+                  isSelected
+                    ? 'bg-[#0077b6]/10 dark:bg-[#00b4d8]/15 border-[#0077b6] dark:border-[#00b4d8]'
+                    : 'bg-gray-50 dark:bg-gray-800/30 border-gray-100 dark:border-gray-700/50'
+                )}
+              >
+                <div className={cn(
+                  'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0',
+                  isSelected
+                    ? 'border-[#0077b6] dark:border-[#00b4d8]'
+                    : 'border-gray-300 dark:border-gray-600'
+                )}>
+                  {isSelected && (
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#0077b6] dark:bg-[#00b4d8]" />
+                  )}
+                </div>
+                <span className={cn(
+                  'text-sm',
+                  isSelected
+                    ? 'text-[#0077b6] dark:text-[#00b4d8] font-medium'
+                    : 'text-gray-600 dark:text-gray-400'
+                )}>
+                  {option.label}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )
+    }
+
+    // 多选题 - 渲染所有选项，高亮用户选择
+    if (question_type === 'multiple' && question_options && question_options.length > 0) {
+      const selectedValues = Array.isArray(parsed.displayValue) ? parsed.displayValue : []
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {question_options.map((option) => {
+            const isSelected = selectedValues.includes(option.value)
+            return (
+              <div
+                key={option.value}
+                className={cn(
+                  'flex items-center gap-3 p-3 rounded-xl border transition-all',
+                  isSelected
+                    ? 'bg-[#0077b6]/10 dark:bg-[#00b4d8]/15 border-[#0077b6] dark:border-[#00b4d8]'
+                    : 'bg-gray-50 dark:bg-gray-800/30 border-gray-100 dark:border-gray-700/50'
+                )}
+              >
+                <div className={cn(
+                  'w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0',
+                  isSelected
+                    ? 'border-[#0077b6] dark:border-[#00b4d8] bg-[#0077b6] dark:bg-[#00b4d8]'
+                    : 'border-gray-300 dark:border-gray-600'
+                )}>
+                  {isSelected && (
+                    <Icon icon="ph:check-bold" className="w-3 h-3 text-white" />
+                  )}
+                </div>
+                <span className={cn(
+                  'text-sm',
+                  isSelected
+                    ? 'text-[#0077b6] dark:text-[#00b4d8] font-medium'
+                    : 'text-gray-600 dark:text-gray-400'
+                )}>
+                  {option.label}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )
+    }
+
+    // 判断题 - 两个选项：是/否
     if (question_type === 'boolean') {
       const boolValue = parsed.displayValue as boolean
+      const options = [
+        { label: '是', value: true },
+        { label: '否', value: false },
+      ]
       return (
-        <span className={cn(
-          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium',
-          boolValue ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-            : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-        )}>
-          <Icon icon={boolValue ? 'ph:check' : 'ph:x'} className="w-4 h-4" />
-          {boolValue ? '是' : '否'}
-        </span>
+        <div className="grid grid-cols-2 gap-2 max-w-md">
+          {options.map((option) => {
+            const isSelected = option.value === boolValue
+            return (
+              <div
+                key={option.label}
+                className={cn(
+                  'flex items-center gap-3 p-3 rounded-xl border transition-all',
+                  isSelected
+                    ? option.value
+                      ? 'bg-green-50 dark:bg-green-900/20 border-green-500 dark:border-green-400'
+                      : 'bg-red-50 dark:bg-red-900/20 border-red-500 dark:border-red-400'
+                    : 'bg-gray-50 dark:bg-gray-800/30 border-gray-100 dark:border-gray-700/50'
+                )}
+              >
+                <div className={cn(
+                  'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0',
+                  isSelected
+                    ? option.value
+                      ? 'border-green-500 dark:border-green-400'
+                      : 'border-red-500 dark:border-red-400'
+                    : 'border-gray-300 dark:border-gray-600'
+                )}>
+                  {isSelected && (
+                    <div className={cn(
+                      'w-2.5 h-2.5 rounded-full',
+                      option.value ? 'bg-green-500 dark:bg-green-400' : 'bg-red-500 dark:bg-red-400'
+                    )} />
+                  )}
+                </div>
+                <span className={cn(
+                  'text-sm flex items-center gap-1.5',
+                  isSelected
+                    ? option.value
+                      ? 'text-green-600 dark:text-green-400 font-medium'
+                      : 'text-red-600 dark:text-red-400 font-medium'
+                    : 'text-gray-600 dark:text-gray-400'
+                )}>
+                  {isSelected && (
+                    <Icon
+                      icon={option.value ? 'ph:check' : 'ph:x'}
+                      className={cn('w-4 h-4', option.value ? 'text-green-500' : 'text-red-500')}
+                    />
+                  )}
+                  {option.label}
+                </span>
+              </div>
+            )
+          })}
+        </div>
       )
     }
 
@@ -459,27 +589,23 @@ function AnswerCard({
       )
     }
 
-    // 多选类型
-    if (question_type === 'multiple') {
-      const values = Array.isArray(parsed.displayValue) ? parsed.displayValue : []
-      if (values.length === 0) {
-        return <p className="text-gray-400 dark:text-gray-500">-</p>
-      }
+    // 文本类型 - 显示题目和答案
+    if (question_type === 'text') {
+      const textValue = typeof parsed.displayValue === 'string' ? parsed.displayValue : null
       return (
-        <div className="flex flex-wrap gap-2">
-          {values.map((item, i) => (
-            <span
-              key={i}
-              className="px-3 py-1.5 rounded-full text-sm bg-[#0077b6]/10 dark:bg-[#00b4d8]/10 text-[#0077b6] dark:text-[#00b4d8]"
-            >
-              {item}
-            </span>
-          ))}
+        <div className={cn(
+          'p-4 rounded-xl',
+          'bg-gray-50 dark:bg-gray-800/50',
+          'border border-gray-100 dark:border-gray-700/50'
+        )}>
+          <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+            {textValue || <span className="text-gray-400 italic">未填写</span>}
+          </p>
         </div>
       )
     }
 
-    // 文本或单选
+    // 兜底：直接显示内容
     const displayText = typeof parsed.displayValue === 'string' ? parsed.displayValue : null
     return (
       <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">

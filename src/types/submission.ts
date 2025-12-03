@@ -4,6 +4,14 @@
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected'
 
 /**
+ * 问题选项
+ */
+export interface QuestionOption {
+  label: string
+  value: string
+}
+
+/**
  * 提交答案
  */
 export interface SubmissionAnswer {
@@ -11,6 +19,7 @@ export interface SubmissionAnswer {
   question_id: number
   question_title: string
   question_type: 'single' | 'multiple' | 'boolean' | 'text' | 'image'
+  question_options?: QuestionOption[] | null  // 选项列表，用于渲染选择题
   content: string | string[] | boolean | null
 }
 

@@ -47,6 +47,7 @@ export interface Question {
   type: QuestionType
   options: QuestionOption[] | null
   is_required: boolean
+  is_pinned: boolean  // 是否保留（随机抽题时始终出现）
   order: number
   validation: QuestionValidation | null
 }
@@ -89,6 +90,7 @@ export interface CreateQuestionRequest {
   type: QuestionType
   options?: QuestionOption[]
   is_required?: boolean
+  is_pinned?: boolean  // 是否保留
   order?: number
   validation?: QuestionValidation
 }

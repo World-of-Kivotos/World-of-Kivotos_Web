@@ -118,13 +118,7 @@ function SortableQuestionCard({
       )}
     >
       {/* 卡片头部 */}
-      <div
-        className={cn(
-          'flex items-center gap-3 px-4 py-3',
-          'border-b border-transparent',
-          isExpanded && 'border-gray-200/50 dark:border-gray-700/50'
-        )}
-      >
+      <div className="flex items-center gap-3 px-4 py-3">
         {/* 拖拽手柄 */}
         <button
           {...attributes}
@@ -154,6 +148,14 @@ function SortableQuestionCard({
         <div className="flex-1 truncate text-sm text-gray-700 dark:text-gray-300">
           {question.title || <span className="text-gray-400 italic">未设置标题</span>}
         </div>
+
+        {/* 保留标识 */}
+        {question.is_pinned && (
+          <span className="flex items-center gap-1 text-xs font-medium text-amber-500">
+            <Icon icon="ph:push-pin-fill" className="w-3 h-3" />
+            保留
+          </span>
+        )}
 
         {/* 必填标识 */}
         {question.is_required && (
@@ -202,14 +204,9 @@ function SortableQuestionCard({
       </div>
 
       {/* 展开的编辑区域 */}
-      <div
-        className={cn(
-          'grid transition-all duration-300 ease-out',
-          isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-        )}
-      >
-        <div className="overflow-hidden">
-          <div className="p-4 space-y-4">
+      {isExpanded && (
+        <div className="overflow-hidden animate-in slide-in-from-top-2 duration-200">
+          <div className="p-4 pt-0 space-y-4 border-t border-gray-200/50 dark:border-gray-700/50">
             {/* 题目标题 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -312,7 +309,7 @@ function SortableQuestionCard({
             )}
 
             {/* 必填设置 */}
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex items-center gap-6 pt-2">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <div
                   className={cn(
@@ -332,10 +329,34 @@ function SortableQuestionCard({
                 </div>
                 <span className="text-sm text-gray-700 dark:text-gray-300">必填题目</span>
               </label>
+
+              {/* 保留题目设置 */}
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <div
+                  className={cn(
+                    'relative w-10 h-6 rounded-full transition-all duration-300',
+                    question.is_pinned
+                      ? 'bg-amber-500'
+                      : 'bg-gray-300 dark:bg-gray-600'
+                  )}
+                  onClick={() => onUpdate({ ...question, is_pinned: !question.is_pinned })}
+                >
+                  <div
+                    className={cn(
+                      'absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-300',
+                      question.is_pinned ? 'left-5' : 'left-1'
+                    )}
+                  />
+                </div>
+                <span className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                  <Icon icon="ph:push-pin-fill" className={cn('w-3.5 h-3.5', question.is_pinned ? 'text-amber-500' : 'text-gray-400')} />
+                  保留题目
+                </span>
+              </label>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -639,6 +660,7 @@ export function SurveyEditModal({
           type: q.type,
           options: q.options ?? undefined,
           is_required: q.is_required,
+          is_pinned: q.is_pinned ?? false,
           order: q.order,
           validation: q.validation ?? undefined,
         }))
@@ -665,14 +687,21 @@ export function SurveyEditModal({
     })
   )
 
+  // 计算保留题目数量
+  const pinnedCount = useMemo(() => {
+    return questions.filter((q) => q.is_pinned).length
+  }, [questions])
+
   // 表单验证
   const isValid = useMemo(() => {
     if (!title.trim()) return false
     if (questions.length === 0) return false
     if (questions.some((q) => !q.title.trim())) return false
     if (isRandom && (!randomCount || randomCount > questions.length)) return false
+    // 保留题目数量不能超过随机抽题数量
+    if (isRandom && randomCount && pinnedCount > randomCount) return false
     return true
-  }, [title, questions, isRandom, randomCount])
+  }, [title, questions, isRandom, randomCount, pinnedCount])
 
   // 入场动画
   useEffect(() => {
@@ -772,6 +801,7 @@ export function SurveyEditModal({
       title: '',
       type,
       is_required: true,
+      is_pinned: false,
       order: questions.length,
       options: ['single', 'multiple'].includes(type)
         ? [{ value: 'A', label: '选项A' }, { value: 'B', label: '选项B' }]
@@ -861,6 +891,9 @@ export function SurveyEditModal({
   const handleSubmit = useCallback(async () => {
     if (!isValid) return
 
+    // DEBUG: 打印每个问题的 is_pinned 状态
+    console.log('[DEBUG] questions before submit:', questions.map(q => ({ title: q.title, is_pinned: q.is_pinned })))
+
     const surveyData: CreateSurveyRequest = {
       title: title.trim(),
       description: description.trim() || undefined,
@@ -872,10 +905,13 @@ export function SurveyEditModal({
         type: q.type,
         options: q.options,
         is_required: q.is_required ?? true,
+        is_pinned: q.is_pinned ?? false,
         order: index,
         validation: q.validation,
       })),
     }
+
+    console.log('[DEBUG] surveyData.questions:', surveyData.questions?.map(q => ({ title: q.title, is_pinned: q.is_pinned })))
 
     await onSubmit(surveyData)
   }, [isValid, title, description, isRandom, randomCount, questions, onSubmit])
@@ -1139,6 +1175,10 @@ export function SurveyEditModal({
                 ? '请完善所有题目的标题'
                 : isRandom && (!randomCount || randomCount > questions.length)
                 ? '请设置有效的随机抽题数量'
+                : isRandom && randomCount && pinnedCount > randomCount
+                ? `保留题目(${pinnedCount})不能超过抽题数量(${randomCount})`
+                : isRandom && pinnedCount > 0
+                ? `共 ${questions.length} 道题目（${pinnedCount} 题保留），准备就绪`
                 : `共 ${questions.length} 道题目，准备就绪`}
             </span>
           </div>
