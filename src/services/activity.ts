@@ -56,7 +56,7 @@ export const activityApi = {
     const response = await surveyApi.get<{
       success: boolean
       data: SurveyActivityResponse
-    }>('/api/v1/activities', {
+    }>('/activities', {
       params: {
         action: params?.action,
         limit: params?.limit || 10,
