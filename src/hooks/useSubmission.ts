@@ -63,10 +63,12 @@ export function useReviewSubmission() {
       submissionId, 
       data,
       playerName,
+      reviewerName,
     }: { 
       submissionId: number
       data: ReviewSubmissionRequest
       playerName: string
+      reviewerName?: string
     }) => {
       // 先执行审核
       await submissionApi.reviewSubmission(submissionId, data)
@@ -77,7 +79,7 @@ export function useReviewSubmission() {
           await whitelistApi.addWhitelist({
             name: playerName,
             source: 'ADMIN',
-            added_by_name: '审核系统',
+            added_by_name: reviewerName || '审核系统',
           })
         } catch (error) {
           // 白名单添加失败不影响审核结果，但给出提示

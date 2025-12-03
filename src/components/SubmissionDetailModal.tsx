@@ -5,6 +5,7 @@ import { animate, stagger } from 'animejs'
 import { cn } from '@/lib/utils'
 import { FullscreenModal, ModalEmptyState } from './FullscreenModal'
 import { useSubmissionDetail, useReviewSubmission } from '@/hooks/useSubmission'
+import { useAuthStore } from '@/stores/auth'
 import type { SubmissionAnswer, SubmissionStatus } from '@/types/submission'
 
 interface SubmissionDetailModalProps {
@@ -75,6 +76,7 @@ export function SubmissionDetailModal({
 }: SubmissionDetailModalProps) {
   const { data: submission, isLoading } = useSubmissionDetail(submissionId)
   const reviewMutation = useReviewSubmission()
+  const user = useAuthStore((state) => state.user)
   const [reviewNote, setReviewNote] = useState('')
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
@@ -104,11 +106,12 @@ export function SubmissionDetailModal({
         review_note: reviewNote || undefined,
       },
       playerName: submission.player_name,
+      reviewerName: user?.displayName || user?.username,
     })
     setShowReviewForm(false)
     setReviewNote('')
     onClose()
-  }, [submissionId, reviewNote, reviewMutation, onClose, submission])
+  }, [submissionId, reviewNote, reviewMutation, onClose, submission, user])
 
   // API 基础路径
   const apiBase = import.meta.env.VITE_SURVEY_API_URL || 'http://localhost:8000'

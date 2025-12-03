@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils'
 import { DataTable, type Column } from '@/components/DataTable'
 import { AddWhitelistModal } from '@/components/AddWhitelistModal'
 import { ConfirmModal } from '@/components/ConfirmModal'
+import { MinecraftAvatar } from '@/components/MinecraftAvatar'
 import {
   useWhitelist,
   useDeleteWhitelist,
@@ -137,9 +138,10 @@ export function WhitelistPage() {
       sortable: true,
       render: (_, record) => (
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-linear-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-medium text-sm shadow-sm">
-            {record.name.charAt(0).toUpperCase()}
-          </div>
+          <MinecraftAvatar
+            playerName={record.name}
+            size={32}
+          />
           <div>
             <div className="font-medium text-gray-900">{record.name}</div>
             {record.uuidPending && (

@@ -2,52 +2,45 @@ import { useEffect, useRef, useState } from 'react'
 import { Icon } from '@iconify/react'
 import { animate, stagger } from 'animejs'
 import { cn } from '@/lib/utils'
+import { useRecentActivities } from '@/hooks/useActivity'
+import { useSubmissionStats } from '@/hooks/useSubmission'
+import { useDashboardServerStatus } from '@/hooks/useServer'
+import type { FormattedActivity } from '@/types/activity'
+import type { FormattedServerStatus } from '@/types/server'
 
-// 统计卡片数据
-const statsData = [
+// 统计卡片配置（不含数据）
+const statsConfig = [
   {
     id: 'total',
-    label: '总玩家数',
-    value: 1234,
+    label: '总提交数',
     icon: 'ph:users-three-fill',
     gradient: 'from-[#0077b6] to-[#00b4d8]',
     iconBg: 'bg-[#0077b6]/10',
     iconColor: 'text-[#0077b6]',
-    trend: '+12%',
-    trendUp: true,
   },
   {
     id: 'approved',
-    label: '已审核',
-    value: 856,
+    label: '已通过',
     icon: 'ph:check-circle-fill',
     gradient: 'from-[#38b000] to-[#70e000]',
     iconBg: 'bg-[#38b000]/10',
     iconColor: 'text-[#38b000]',
-    trend: '+8%',
-    trendUp: true,
   },
   {
     id: 'pending',
     label: '待审核',
-    value: 23,
     icon: 'ph:clock-fill',
     gradient: 'from-[#f77f00] to-[#fcbf49]',
     iconBg: 'bg-[#f77f00]/10',
     iconColor: 'text-[#f77f00]',
-    trend: '-3%',
-    trendUp: false,
   },
   {
     id: 'rejected',
     label: '已拒绝',
-    value: 12,
     icon: 'ph:x-circle-fill',
     gradient: 'from-[#d62828] to-[#f77f00]',
     iconBg: 'bg-[#d62828]/10',
     iconColor: 'text-[#d62828]',
-    trend: '+2%',
-    trendUp: true,
   },
 ]
 
@@ -83,66 +76,39 @@ const quickActions = [
   },
 ]
 
-// 最近活动数据
-const recentActivities = [
-  {
-    id: 1,
-    type: 'add',
-    message: '添加了玩家 Steve_2024',
-    time: '5分钟前',
-    icon: 'ph:user-plus',
-    color: 'text-[#38b000]',
-  },
-  {
-    id: 2,
-    type: 'approve',
-    message: '审核通过了 Alex_MC',
-    time: '15分钟前',
-    icon: 'ph:check-circle',
-    color: 'text-[#0077b6]',
-  },
-  {
-    id: 3,
-    type: 'reject',
-    message: '拒绝了 TestUser123',
-    time: '1小时前',
-    icon: 'ph:x-circle',
-    color: 'text-[#d62828]',
-  },
-  {
-    id: 4,
-    type: 'sync',
-    message: '同步白名单到服务器',
-    time: '2小时前',
-    icon: 'ph:arrows-clockwise',
-    color: 'text-[#7209b7]',
-  },
-  {
-    id: 5,
-    type: 'add',
-    message: '添加了玩家 Notch',
-    time: '3小时前',
-    icon: 'ph:user-plus',
-    color: 'text-[#38b000]',
-  },
-]
-
-// 服务器状态数据
-const serverStatus = {
-  online: true,
-  players: 42,
-  maxPlayers: 100,
-  tps: 19.8,
-  memory: 4.2,
-  maxMemory: 8,
-  uptime: '3天 12小时',
-}
-
 export function DashboardPage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const statsRef = useRef<HTMLDivElement>(null)
   const actionsRef = useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(false)
+  
+  // 获取真实统计数据
+  const { data: submissionStats } = useSubmissionStats()
+  
+  // 获取服务器状态
+  const { data: serverStatus } = useDashboardServerStatus()
+  
+  // 构建统计数据
+  const statsData = statsConfig.map(config => {
+    let value = 0
+    if (submissionStats) {
+      switch (config.id) {
+        case 'total':
+          value = submissionStats.total
+          break
+        case 'approved':
+          value = submissionStats.approved
+          break
+        case 'pending':
+          value = submissionStats.pending
+          break
+        case 'rejected':
+          value = submissionStats.rejected
+          break
+      }
+    }
+    return { ...config, value }
+  })
 
   // 入场动画
   useEffect(() => {
@@ -250,20 +216,6 @@ export function DashboardPage() {
                 >
                   <Icon icon={stat.icon} className={cn('w-5 h-5', stat.iconColor)} />
                 </div>
-                <div
-                  className={cn(
-                    'flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full',
-                    stat.trendUp
-                      ? 'text-[#38b000] bg-[#38b000]/10'
-                      : 'text-[#d62828] bg-[#d62828]/10'
-                  )}
-                >
-                  <Icon
-                    icon={stat.trendUp ? 'ph:trend-up' : 'ph:trend-down'}
-                    className="w-3 h-3"
-                  />
-                  {stat.trend}
-                </div>
               </div>
 
               <div className="space-y-1">
@@ -281,7 +233,7 @@ export function DashboardPage() {
                     stat.gradient
                   )}
                   style={{
-                    width: mounted ? `${Math.min((stat.value / 1500) * 100, 100)}%` : '0%',
+                    width: mounted ? `${Math.min((stat.value / Math.max(submissionStats?.total || 1, 1)) * 100, 100)}%` : '0%',
                     transitionDelay: `${index * 100 + 500}ms`,
                   }}
                 />
@@ -335,12 +287,20 @@ export function DashboardPage() {
           </div>
 
           {/* 服务器状态 */}
-          <ServerStatusCard status={serverStatus} />
+          <ServerStatusCard status={serverStatus ?? {
+            online: false,
+            players: 0,
+            maxPlayers: 0,
+            tps: 0,
+            memory: 0,
+            maxMemory: 0,
+            uptime: '加载中...',
+          }} />
         </div>
 
         {/* 右侧：最近活动 */}
         <div className="lg:col-span-2">
-          <RecentActivityCard activities={recentActivities} />
+          <RecentActivityCard />
         </div>
       </div>
     </div>
@@ -348,7 +308,7 @@ export function DashboardPage() {
 }
 
 // 服务器状态卡片
-function ServerStatusCard({ status }: { status: typeof serverStatus }) {
+function ServerStatusCard({ status }: { status: FormattedServerStatus }) {
   const [pulseKey, setPulseKey] = useState(0)
 
   useEffect(() => {
@@ -452,21 +412,22 @@ function ServerStatusCard({ status }: { status: typeof serverStatus }) {
 }
 
 // 最近活动卡片
-function RecentActivityCard({ activities }: { activities: typeof recentActivities }) {
+function RecentActivityCard() {
   const listRef = useRef<HTMLDivElement>(null)
+  const { data: activities, isLoading, error } = useRecentActivities(5)
 
   useEffect(() => {
-    if (listRef.current) {
+    if (activities && listRef.current) {
       const items = listRef.current.querySelectorAll('.activity-item')
       animate(items, {
         opacity: [0, 1],
         translateX: [20, 0],
         duration: 400,
-        delay: stagger(60, { start: 600 }),
+        delay: stagger(60, { start: 100 }),
         ease: 'out(2)',
       })
     }
-  }, [])
+  }, [activities])
 
   return (
     <div className="h-full bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl rounded-2xl p-5 shadow-sm border border-white/50 dark:border-gray-700/50">
@@ -485,31 +446,60 @@ function RecentActivityCard({ activities }: { activities: typeof recentActivitie
       </div>
 
       <div ref={listRef} className="space-y-3">
-        {activities.map((activity) => (
-          <div
-            key={activity.id}
-            className="activity-item opacity-0 group flex items-center gap-4 p-3 rounded-xl bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer"
-          >
+        {isLoading ? (
+          // 加载状态
+          Array.from({ length: 5 }).map((_, index) => (
             <div
-              className={cn(
-                'flex items-center justify-center w-10 h-10 rounded-xl bg-white dark:bg-gray-800 shadow-sm transition-transform duration-300 group-hover:scale-110',
-                activity.color
-              )}
+              key={index}
+              className="flex items-center gap-4 p-3 rounded-xl bg-gray-50/50 dark:bg-gray-800/50 animate-pulse"
             >
-              <Icon icon={activity.icon} className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-xl bg-gray-200 dark:bg-gray-700" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-700 rounded" />
+                <div className="h-3 w-1/4 bg-gray-200 dark:bg-gray-700 rounded" />
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                {activity.message}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{activity.time}</p>
-            </div>
-            <Icon
-              icon="ph:dots-three"
-              className="w-5 h-5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
-            />
+          ))
+        ) : error ? (
+          // 错误状态
+          <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+            <Icon icon="ph:warning" className="w-10 h-10 mb-2" />
+            <p className="text-sm">加载失败</p>
           </div>
-        ))}
+        ) : activities && activities.length > 0 ? (
+          // 活动列表
+          activities.map((activity: FormattedActivity) => (
+            <div
+              key={activity.id}
+              className="activity-item opacity-0 group flex items-center gap-4 p-3 rounded-xl bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer"
+            >
+              <div
+                className={cn(
+                  'flex items-center justify-center w-10 h-10 rounded-xl bg-white dark:bg-gray-800 shadow-sm transition-transform duration-300 group-hover:scale-110',
+                  activity.color
+                )}
+              >
+                <Icon icon={activity.icon} className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                  {activity.message}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{activity.time}</p>
+              </div>
+              <Icon
+                icon="ph:dots-three"
+                className="w-5 h-5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
+              />
+            </div>
+          ))
+        ) : (
+          // 空状态
+          <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+            <Icon icon="ph:clock" className="w-10 h-10 mb-2" />
+            <p className="text-sm">暂无活动记录</p>
+          </div>
+        )}
       </div>
 
       {/* 底部装饰 */}
