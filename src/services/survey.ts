@@ -9,6 +9,14 @@ import type {
   UpdateQuestionRequest,
   Question,
 } from '@/types/survey'
+import type {
+  SubmissionPaginatedResponse,
+  SubmissionDetail,
+  SubmissionStats,
+  CleanupResult,
+  GetSubmissionsParams,
+  ReviewSubmissionRequest,
+} from '@/types/submission'
 
 // 问卷系统的 API 基础路径（使用不同的后端）
 const SURVEY_API_BASE = import.meta.env.VITE_SURVEY_API_URL || 'http://localhost:8000/api/v1'
@@ -20,6 +28,16 @@ export interface GetSurveysParams {
   page?: number
   size?: number
   search?: string
+  is_active?: boolean
+}
+
+/**
+ * 问卷统计
+ */
+export interface SurveyStats {
+  active: number
+  inactive: number
+  total: number
 }
 
 /**
@@ -37,6 +55,7 @@ export const surveyApi = {
           page: params?.page || 1,
           size: params?.size || 20,
           search: params?.search,
+          is_active: params?.is_active,
         },
       }
     )
@@ -150,5 +169,103 @@ export const surveyApi = {
     if (!response.data.success) {
       throw new Error(response.data.error?.message || '删除问题失败')
     }
+  },
+
+  /**
+   * 获取问卷统计
+   */
+  async getStats(): Promise<SurveyStats> {
+    const response = await api.get<SurveyApiResponse<SurveyStats>>(
+      `${SURVEY_API_BASE}/surveys/stats/overview`
+    )
+
+    if (response.data.success && response.data.data) {
+      return response.data.data
+    }
+    throw new Error(response.data.error?.message || '获取统计数据失败')
+  },
+}
+
+/**
+ * 提交管理 API 服务
+ */
+export const submissionApi = {
+  /**
+   * 获取提交列表
+   */
+  async getSubmissions(params?: GetSubmissionsParams): Promise<SubmissionPaginatedResponse> {
+    const response = await api.get<SurveyApiResponse<SubmissionPaginatedResponse>>(
+      `${SURVEY_API_BASE}/submissions`,
+      {
+        params: {
+          page: params?.page || 1,
+          size: params?.size || 20,
+          status: params?.status,
+          survey_id: params?.survey_id,
+          player_name: params?.player_name,
+        },
+      }
+    )
+
+    if (response.data.success && response.data.data) {
+      return response.data.data
+    }
+    throw new Error(response.data.error?.message || '获取提交列表失败')
+  },
+
+  /**
+   * 获取提交详情
+   */
+  async getSubmission(submissionId: number): Promise<SubmissionDetail> {
+    const response = await api.get<SurveyApiResponse<SubmissionDetail>>(
+      `${SURVEY_API_BASE}/submissions/${submissionId}`
+    )
+
+    if (response.data.success && response.data.data) {
+      return response.data.data
+    }
+    throw new Error(response.data.error?.message || '获取提交详情失败')
+  },
+
+  /**
+   * 审核提交
+   */
+  async reviewSubmission(submissionId: number, data: ReviewSubmissionRequest): Promise<void> {
+    const response = await api.patch<SurveyApiResponse<{ id: number; status: string; message: string }>>(
+      `${SURVEY_API_BASE}/submissions/${submissionId}/review`,
+      data
+    )
+
+    if (!response.data.success) {
+      throw new Error(response.data.error?.message || '审核提交失败')
+    }
+  },
+
+  /**
+   * 获取统计概览
+   */
+  async getStats(): Promise<SubmissionStats> {
+    const response = await api.get<SurveyApiResponse<SubmissionStats>>(
+      `${SURVEY_API_BASE}/submissions/stats/overview`
+    )
+
+    if (response.data.success && response.data.data) {
+      return response.data.data
+    }
+    throw new Error(response.data.error?.message || '获取统计数据失败')
+  },
+
+  /**
+   * 手动触发清理
+   */
+  async triggerCleanup(): Promise<CleanupResult> {
+    const response = await api.post<SurveyApiResponse<CleanupResult>>(
+      `${SURVEY_API_BASE}/submissions/cleanup`
+    )
+
+    if (response.data.success && response.data.data) {
+      return response.data.data
+    }
+    throw new Error(response.data.error?.message || '触发清理失败')
   },
 }

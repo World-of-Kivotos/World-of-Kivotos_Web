@@ -1,12 +1,18 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Icon } from '@iconify/react'
+import { animate, stagger } from 'animejs'
 import { cn } from '@/lib/utils'
 import { ConfirmModal } from '@/components/ConfirmModal'
+import { StatusTabs, type StatusTab } from '@/components/StatusTabs'
+import { SurveyEditModal } from '@/components/SurveyEditModal'
 import {
   useSurveys,
   useCreateSurvey,
   useDeleteSurvey,
   useToggleSurveyActive,
+  useSurveyStats,
+  useSurveyDetail,
+  useUpdateSurveyWithQuestions,
 } from '@/hooks/useSurvey'
 import type { Survey, CreateSurveyRequest } from '@/types/survey'
 
@@ -34,32 +40,95 @@ export function SurveyPage() {
   const [page, setPage] = useState(1)
   const [pageSize] = useState(20)
   const [searchTerm, setSearchTerm] = useState('')
+  const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Survey | null>(null)
-
-  // 创建问卷表单状态
-  const [newSurvey, setNewSurvey] = useState<CreateSurveyRequest>({
-    title: '',
-    description: '',
-    is_random: false,
-    random_count: undefined,
-  })
+  const [editTarget, setEditTarget] = useState<Survey | null>(null)
 
   // 数据获取
   const { data, isLoading, refetch } = useSurveys({
     page,
     size: pageSize,
     search: searchTerm || undefined,
+    is_active: activeFilter === 'all' ? undefined : activeFilter === 'active',
   })
 
+  const { data: stats, isLoading: statsLoading } = useSurveyStats()
   const createMutation = useCreateSurvey()
   const deleteMutation = useDeleteSurvey()
   const toggleActiveMutation = useToggleSurveyActive()
+  const updateMutation = useUpdateSurveyWithQuestions()
+  
+  // 获取编辑问卷的详情
+  const { data: editSurveyDetail, isLoading: editDetailLoading } = useSurveyDetail(editTarget?.id ?? 0)
+
+  // 状态标签配置
+  const statusTabs = useMemo<StatusTab[]>(() => [
+    {
+      value: 'all',
+      label: '全部',
+      icon: 'ph:list',
+      count: stats?.total ?? 0,
+    },
+    {
+      value: 'active',
+      label: '启用中',
+      icon: 'ph:check-circle',
+      count: stats?.active ?? 0,
+      iconColor: 'text-green-500',
+    },
+    {
+      value: 'inactive',
+      label: '已停用',
+      icon: 'ph:pause-circle',
+      count: stats?.inactive ?? 0,
+      iconColor: 'text-gray-500',
+    },
+  ], [stats])
+
+  // Refs for animations
+  const containerRef = useRef<HTMLDivElement>(null)
+  const tableRef = useRef<HTMLDivElement>(null)
+
+  // 入场动画
+  useEffect(() => {
+    // 标题动画
+    if (containerRef.current) {
+      const titleElements = containerRef.current.querySelectorAll('.animate-title')
+      animate(titleElements, {
+        opacity: [0, 1],
+        translateY: [20, 0],
+        duration: 600,
+        delay: stagger(100),
+        ease: 'out(3)',
+      })
+    }
+  }, [])
+
+  // 表格行动画 - 数据变化时触发
+  useEffect(() => {
+    if (data?.items && tableRef.current) {
+      const rows = tableRef.current.querySelectorAll('.survey-row')
+      animate(rows, {
+        opacity: [0, 1],
+        translateY: [20, 0],
+        duration: 400,
+        delay: stagger(50, { start: 100 }),
+        ease: 'out(2)',
+      })
+    }
+  }, [data?.items])
 
   // 处理搜索
   const handleSearch = useCallback((value: string) => {
     setSearchTerm(value)
+    setPage(1)
+  }, [])
+
+  // 处理状态筛选
+  const handleActiveFilter = useCallback((value: string) => {
+    setActiveFilter(value as 'all' | 'active' | 'inactive')
     setPage(1)
   }, [])
 
@@ -89,17 +158,25 @@ export function SurveyPage() {
   )
 
   // 处理创建问卷
-  const handleCreateSurvey = useCallback(async () => {
-    if (!newSurvey.title.trim()) return
-    await createMutation.mutateAsync(newSurvey)
+  const handleCreateSurvey = useCallback(async (surveyData: CreateSurveyRequest) => {
+    await createMutation.mutateAsync(surveyData)
     setShowCreateModal(false)
-    setNewSurvey({
-      title: '',
-      description: '',
-      is_random: false,
-      random_count: undefined,
+  }, [createMutation])
+
+  // 处理编辑问卷
+  const handleEdit = useCallback((survey: Survey) => {
+    setEditTarget(survey)
+  }, [])
+
+  // 处理更新问卷
+  const handleUpdateSurvey = useCallback(async (surveyData: CreateSurveyRequest) => {
+    if (!editTarget) return
+    await updateMutation.mutateAsync({
+      surveyId: editTarget.id,
+      data: surveyData,
     })
-  }, [newSurvey, createMutation])
+    setEditTarget(null)
+  }, [editTarget, updateMutation])
 
   // 分页信息
   const totalPages = data?.pages || 1
@@ -107,43 +184,54 @@ export function SurveyPage() {
   const hasNext = page < totalPages
 
   return (
-    <div className="h-full flex flex-col">
+    <div ref={containerRef} className="h-full flex flex-col">
       {/* 页面标题 */}
-      <div className="mb-6 animate-slide-down">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+      <div className="mb-6">
+        <h1 className="animate-title opacity-0 text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
           问卷管理
         </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">
+        <p className="animate-title opacity-0 text-gray-500 dark:text-gray-400 mt-1">
           管理问卷系统，创建和启用问卷
         </p>
       </div>
 
       {/* 操作栏 */}
-      <div className="flex items-center justify-between gap-4 mb-6 animate-slide-down" style={{ animationDelay: '0.1s' }}>
-        {/* 搜索框 */}
-        <div className="relative flex-1 max-w-md">
-          <Icon
-            icon="ph:magnifying-glass"
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
-          />
-          <input
-            type="text"
-            placeholder="搜索问卷标题..."
-            value={searchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
-            className={cn(
-              'w-full pl-10 pr-4 py-2.5 rounded-xl',
-              'bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl',
-              'border border-gray-200/50 dark:border-gray-700/50',
-              'text-gray-900 dark:text-white placeholder-gray-400',
-              'focus:outline-none focus:ring-2 focus:ring-[#0077b6]/50',
-              'transition-all duration-300'
-            )}
+      <div className="animate-title opacity-0 flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
+        {/* 左侧：搜索框 + 状态切换 */}
+        <div className="flex flex-wrap items-center gap-3 flex-1">
+          {/* 搜索框 */}
+          <div className="relative w-full sm:w-64">
+            <Icon
+              icon="ph:magnifying-glass"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
+            />
+            <input
+              type="text"
+              placeholder="搜索问卷标题..."
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
+              className={cn(
+                'w-full pl-10 pr-4 py-2.5 rounded-xl',
+                'bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl',
+                'border border-gray-200/50 dark:border-gray-700/50',
+                'text-gray-900 dark:text-white placeholder-gray-400',
+                'focus:outline-none focus:ring-2 focus:ring-[#0077b6]/50',
+                'transition-all duration-300'
+              )}
+            />
+          </div>
+
+          {/* 状态切换标签 */}
+          <StatusTabs
+            tabs={statusTabs}
+            value={activeFilter}
+            onChange={handleActiveFilter}
+            loading={statsLoading}
           />
         </div>
 
-        {/* 操作按钮 */}
-        <div className="flex items-center gap-3">
+        {/* 右侧：操作按钮 */}
+        <div className="flex items-center gap-3 shrink-0">
           <button
             onClick={() => refetch()}
             className={cn(
@@ -175,8 +263,9 @@ export function SurveyPage() {
       </div>
 
       {/* 问卷列表 */}
-      <div className="flex-1 overflow-hidden animate-fade-in" style={{ animationDelay: '0.2s' }}>
+      <div className="animate-title opacity-0 flex-1 overflow-hidden">
         <div
+          ref={tableRef}
           className={cn(
             'h-full rounded-2xl overflow-hidden',
             'bg-white/80 dark:bg-[#1c1c1e]/80 backdrop-blur-xl',
@@ -231,7 +320,7 @@ export function SurveyPage() {
                   {data.items.map((survey) => (
                     <tr
                       key={survey.id}
-                      className="group hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors"
+                      className="survey-row opacity-0 group hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors"
                     >
                       <td className="px-6 py-4">
                         <div>
@@ -290,7 +379,24 @@ export function SurveyPage() {
                         {formatDate(survey.created_at)}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleEdit(survey)}
+                            disabled={editTarget?.id === survey.id && editDetailLoading}
+                            className={cn(
+                              'p-2 rounded-lg',
+                              'text-gray-400 hover:text-[#0077b6] hover:bg-[#0077b6]/10',
+                              'transition-all duration-200',
+                              'disabled:opacity-50'
+                            )}
+                            title="编辑问卷"
+                          >
+                            {editTarget?.id === survey.id && editDetailLoading ? (
+                              <Icon icon="ph:spinner" className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <Icon icon="ph:pencil-simple" className="w-5 h-5" />
+                            )}
+                          </button>
                           <button
                             onClick={() => handleDelete(survey)}
                             className={cn(
@@ -315,7 +421,7 @@ export function SurveyPage() {
 
       {/* 分页 */}
       {data && data.total > 0 && (
-        <div className="flex items-center justify-between mt-4 px-2 animate-fade-in" style={{ animationDelay: '0.3s' }}>
+        <div className="animate-title opacity-0 flex items-center justify-between mt-4 px-2">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             共 {data.total} 条记录，第 {page} / {totalPages} 页
           </p>
@@ -349,143 +455,23 @@ export function SurveyPage() {
       )}
 
       {/* 创建问卷弹窗 */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowCreateModal(false)}
-          />
-          <div
-            className={cn(
-              'relative w-full max-w-lg p-6 rounded-2xl',
-              'bg-white dark:bg-[#1c1c1e]',
-              'border border-gray-200/50 dark:border-gray-700/50',
-              'shadow-2xl animate-scale-in'
-            )}
-          >
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
-              创建新问卷
-            </h2>
+      <SurveyEditModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateSurvey}
+        loading={createMutation.isPending}
+        mode="create"
+      />
 
-            <div className="space-y-4">
-              {/* 问卷标题 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  问卷标题 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newSurvey.title}
-                  onChange={(e) => setNewSurvey((s) => ({ ...s, title: e.target.value }))}
-                  placeholder="请输入问卷标题"
-                  className={cn(
-                    'w-full px-4 py-3 rounded-xl',
-                    'bg-gray-50 dark:bg-gray-800/50',
-                    'border border-gray-200 dark:border-gray-700',
-                    'text-gray-900 dark:text-white placeholder-gray-400',
-                    'focus:outline-none focus:ring-2 focus:ring-[#0077b6]/50',
-                    'transition-all duration-300'
-                  )}
-                />
-              </div>
-
-              {/* 问卷描述 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  问卷描述
-                </label>
-                <textarea
-                  value={newSurvey.description || ''}
-                  onChange={(e) => setNewSurvey((s) => ({ ...s, description: e.target.value }))}
-                  placeholder="请输入问卷描述（可选）"
-                  rows={3}
-                  className={cn(
-                    'w-full px-4 py-3 rounded-xl resize-none',
-                    'bg-gray-50 dark:bg-gray-800/50',
-                    'border border-gray-200 dark:border-gray-700',
-                    'text-gray-900 dark:text-white placeholder-gray-400',
-                    'focus:outline-none focus:ring-2 focus:ring-[#0077b6]/50',
-                    'transition-all duration-300'
-                  )}
-                />
-              </div>
-
-              {/* 随机抽题 */}
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={newSurvey.is_random || false}
-                    onChange={(e) =>
-                      setNewSurvey((s) => ({
-                        ...s,
-                        is_random: e.target.checked,
-                        random_count: e.target.checked ? s.random_count : undefined,
-                      }))
-                    }
-                    className="w-4 h-4 rounded text-[#0077b6] focus:ring-[#0077b6]/50"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">启用随机抽题</span>
-                </label>
-
-                {newSurvey.is_random && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">抽取</span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={newSurvey.random_count || ''}
-                      onChange={(e) =>
-                        setNewSurvey((s) => ({
-                          ...s,
-                          random_count: e.target.value ? parseInt(e.target.value) : undefined,
-                        }))
-                      }
-                      className={cn(
-                        'w-20 px-3 py-1.5 rounded-lg text-center',
-                        'bg-gray-50 dark:bg-gray-800/50',
-                        'border border-gray-200 dark:border-gray-700',
-                        'text-gray-900 dark:text-white',
-                        'focus:outline-none focus:ring-2 focus:ring-[#0077b6]/50'
-                      )}
-                    />
-                    <span className="text-sm text-gray-500">题</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* 按钮 */}
-            <div className="flex items-center justify-end gap-3 mt-8">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className={cn(
-                  'px-4 py-2.5 rounded-xl font-medium',
-                  'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white',
-                  'hover:bg-gray-100 dark:hover:bg-gray-800',
-                  'transition-all duration-200'
-                )}
-              >
-                取消
-              </button>
-              <button
-                onClick={handleCreateSurvey}
-                disabled={!newSurvey.title.trim() || createMutation.isPending}
-                className={cn(
-                  'px-6 py-2.5 rounded-xl font-medium',
-                  'bg-linear-to-r from-[#0077b6] to-[#00b4d8]',
-                  'text-white shadow-lg shadow-[#0077b6]/30',
-                  'transition-all duration-300',
-                  'disabled:opacity-50 disabled:cursor-not-allowed',
-                  'hover:shadow-xl hover:scale-[1.02]'
-                )}
-              >
-                {createMutation.isPending ? '创建中...' : '创建问卷'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 编辑问卷弹窗 */}
+      <SurveyEditModal
+        open={!!editTarget && !editDetailLoading}
+        onClose={() => setEditTarget(null)}
+        onSubmit={handleUpdateSurvey}
+        loading={updateMutation.isPending}
+        mode="edit"
+        initialData={editSurveyDetail}
+      />
 
       {/* 删除确认弹窗 */}
       <ConfirmModal

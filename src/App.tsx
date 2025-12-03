@@ -6,6 +6,7 @@ import { WhitelistPage } from '@/pages/WhitelistPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SurveyPage } from '@/pages/SurveyPage'
+import { AuditPage } from '@/pages/AuditPage'
 import { useAuthStore } from '@/stores/auth'
 import { Icon } from '@iconify/react'
 
@@ -93,7 +94,7 @@ function App() {
           <div className="h-full max-w-7xl mx-auto">
             {activePage === 'dashboard' && <DashboardPage />}
             {activePage === 'whitelist' && <WhitelistPage />}
-            {activePage === 'audit' && <PlaceholderContent title="审核管理" icon="ph:check-circle" />}
+            {activePage === 'audit' && <AuditPage />}
             {activePage === 'survey' && <SurveyPage />}
             {activePage === 'logs' && <PlaceholderContent title="日志监控" icon="ph:chart-line-up" />}
             {activePage === 'notifications' && <PlaceholderContent title="通知中心" icon="ph:bell" />}

@@ -12,6 +12,7 @@ export const surveyKeys = {
   list: (params: GetSurveysParams) => [...surveyKeys.lists(), params] as const,
   details: () => [...surveyKeys.all, 'detail'] as const,
   detail: (id: number) => [...surveyKeys.details(), id] as const,
+  stats: () => [...surveyKeys.all, 'stats'] as const,
 }
 
 /**
@@ -48,6 +49,7 @@ export function useCreateSurvey() {
     onSuccess: (result) => {
       toast.success(`问卷「${result.title}」创建成功`)
       queryClient.invalidateQueries({ queryKey: surveyKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: surveyKeys.stats() })
     },
     onError: (error: Error) => {
       toast.error(error.message || '创建问卷失败')
@@ -86,6 +88,7 @@ export function useDeleteSurvey() {
     onSuccess: () => {
       toast.success('问卷删除成功')
       queryClient.invalidateQueries({ queryKey: surveyKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: surveyKeys.stats() })
     },
     onError: (error: Error) => {
       toast.error(error.message || '删除问卷失败')
@@ -106,9 +109,74 @@ export function useToggleSurveyActive() {
       toast.success(variables.isActive ? '问卷已启用' : '问卷已禁用')
       queryClient.invalidateQueries({ queryKey: surveyKeys.lists() })
       queryClient.invalidateQueries({ queryKey: surveyKeys.details() })
+      queryClient.invalidateQueries({ queryKey: surveyKeys.stats() })
     },
     onError: (error: Error) => {
       toast.error(error.message || '操作失败')
+    },
+  })
+}
+
+/**
+ * 获取问卷统计
+ */
+export function useSurveyStats() {
+  return useQuery({
+    queryKey: surveyKeys.stats(),
+    queryFn: () => surveyApi.getStats(),
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+  })
+}
+
+/**
+ * 更新问卷（包含问题的完整更新）
+ * 采用删除旧问题 + 添加新问题的策略
+ */
+export function useUpdateSurveyWithQuestions() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      surveyId,
+      data,
+    }: {
+      surveyId: number
+      data: CreateSurveyRequest
+    }) => {
+      // 1. 更新问卷基本信息
+      await surveyApi.updateSurvey(surveyId, {
+        title: data.title,
+        description: data.description,
+        is_random: data.is_random,
+        random_count: data.random_count,
+      })
+
+      // 2. 获取当前问卷详情（包含现有问题）
+      const currentSurvey = await surveyApi.getSurvey(surveyId)
+
+      // 3. 删除所有现有问题
+      for (const question of currentSurvey.questions) {
+        await surveyApi.deleteQuestion(surveyId, question.id)
+      }
+
+      // 4. 添加新问题
+      if (data.questions && data.questions.length > 0) {
+        for (const question of data.questions) {
+          await surveyApi.addQuestion(surveyId, question)
+        }
+      }
+
+      return { surveyId }
+    },
+    onSuccess: () => {
+      toast.success('问卷更新成功')
+      queryClient.invalidateQueries({ queryKey: surveyKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: surveyKeys.details() })
+      queryClient.invalidateQueries({ queryKey: surveyKeys.stats() })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || '更新问卷失败')
     },
   })
 }
