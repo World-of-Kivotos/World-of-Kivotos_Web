@@ -13,9 +13,18 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': {
-        target: 'http://localhost:3000',
+      // 白名单 API 代理
+      '/api/v1': {
+        target: 'https://api.mcwok.cn',
         changeOrigin: true,
+        secure: true,
+      },
+      // 问卷 API 代理
+      '/survey-api': {
+        target: 'https://questionnaire.mcwok.cn',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/survey-api/, '/api/v1'),
       },
     },
   },
