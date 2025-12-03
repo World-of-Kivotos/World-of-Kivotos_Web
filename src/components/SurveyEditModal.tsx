@@ -756,7 +756,7 @@ export function SurveyEditModal({
         scale: [1, 0.95],
         duration: 250,
         easing: 'easeInCubic',
-        complete: () => {
+        onComplete: () => {
           // 重置状态
           setTitle('')
           setDescription('')

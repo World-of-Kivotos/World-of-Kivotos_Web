@@ -697,7 +697,7 @@ function ImagePreviewModal({
         scale: [1, 0.9],
         duration: 200,
         easing: 'easeInCubic',
-        complete: onClose,
+        onComplete: onClose,
       })
     } else {
       onClose()

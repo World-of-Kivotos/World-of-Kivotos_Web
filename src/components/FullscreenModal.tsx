@@ -76,7 +76,7 @@ export function FullscreenModal({
         scale: [1, 0.95],
         duration: 250,
         easing: 'easeInCubic',
-        complete: () => {
+        onComplete: () => {
           onClose()
         },
       })
