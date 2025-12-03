@@ -115,6 +115,8 @@ export function SubmissionDetailModal({
 
   // API 基础路径
   const apiBase = import.meta.env.VITE_SURVEY_API_URL || 'http://localhost:8000'
+  // 上传文件基础路径（不包含 /api/v1）
+  const uploadsBase = apiBase.replace(/\/api\/v1\/?$/, '')
 
   return (
     <>
@@ -291,7 +293,7 @@ export function SubmissionDetailModal({
                     key={answer.id}
                     answer={answer}
                     index={index + 1}
-                    apiBase={apiBase}
+                    uploadsBase={uploadsBase}
                     onImageClick={setPreviewImage}
                   />
                 ))}
@@ -399,12 +401,12 @@ function parseAnswerContent(content: SubmissionAnswer['content'], questionType: 
 function AnswerCard({
   answer,
   index,
-  apiBase,
+  uploadsBase,
   onImageClick,
 }: {
   answer: SubmissionAnswer
   index: number
-  apiBase: string
+  uploadsBase: string
   onImageClick: (url: string) => void
 }) {
   const { question_type, question_options } = answer
@@ -561,7 +563,7 @@ function AnswerCard({
       return (
         <div className="flex flex-wrap gap-3">
           {parsed.images.map((url, i) => {
-            const fullUrl = url.startsWith('http') ? url : `${apiBase}${url}`
+            const fullUrl = url.startsWith('http') ? url : `${uploadsBase}${url}`
             return (
               <button
                 key={i}
