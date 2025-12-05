@@ -33,6 +33,15 @@ export interface QuestionValidation {
 }
 
 /**
+ * 条件显示规则
+ * 用于实现分支逻辑：根据某道题的答案决定是否显示当前题目
+ */
+export interface QuestionCondition {
+  depends_on: number           // 依赖的问题 ID（或本地临时 ID 的索引）
+  show_when: string | string[] // 触发显示的答案值（支持单值或多值）
+}
+
+/**
  * 问题类型
  */
 export type QuestionType = 'single' | 'multiple' | 'boolean' | 'text' | 'image'
@@ -50,6 +59,7 @@ export interface Question {
   is_pinned: boolean  // 是否保留（随机抽题时始终出现）
   order: number
   validation: QuestionValidation | null
+  condition: QuestionCondition | null  // 条件显示规则
 }
 
 /**
@@ -93,6 +103,7 @@ export interface CreateQuestionRequest {
   is_pinned?: boolean  // 是否保留
   order?: number
   validation?: QuestionValidation
+  condition?: QuestionCondition  // 条件显示规则
 }
 
 /**
@@ -106,6 +117,7 @@ export interface UpdateQuestionRequest {
   is_required?: boolean
   order?: number
   validation?: QuestionValidation
+  condition?: QuestionCondition  // 条件显示规则
 }
 
 /**
