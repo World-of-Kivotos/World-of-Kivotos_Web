@@ -24,6 +24,7 @@ import type {
   QuestionType,
   QuestionOption,
   QuestionValidation,
+  QuestionCondition,
   CreateQuestionRequest,
   CreateSurveyRequest,
   SurveyDetail,
@@ -47,6 +48,7 @@ interface SurveyEditModalProps {
 interface LocalQuestion extends Omit<CreateQuestionRequest, 'order'> {
   _id: string // 本地临时ID
   order: number
+  condition?: QuestionCondition  // 条件显示配置
 }
 
 // 题目类型配置
@@ -78,6 +80,7 @@ interface SortableQuestionCardProps {
   onUpdate: (question: LocalQuestion) => void
   onDelete: () => void
   onDuplicate: () => void
+  allQuestions: LocalQuestion[]  // 所有题目列表，用于条件配置
 }
 
 function SortableQuestionCard({
@@ -88,6 +91,7 @@ function SortableQuestionCard({
   onUpdate,
   onDelete,
   onDuplicate,
+  allQuestions,
 }: SortableQuestionCardProps) {
   const {
     attributes,
@@ -154,6 +158,14 @@ function SortableQuestionCard({
           <span className="flex items-center gap-1 text-xs font-medium text-amber-500">
             <Icon icon="ph:push-pin-fill" className="w-3 h-3" />
             保留
+          </span>
+        )}
+
+        {/* 条件显示标识 */}
+        {question.condition && (
+          <span className="flex items-center gap-1 text-xs font-medium text-purple-500">
+            <Icon icon="ph:git-branch" className="w-3 h-3" />
+            条件
           </span>
         )}
 
@@ -354,6 +366,14 @@ function SortableQuestionCard({
                 </span>
               </label>
             </div>
+
+            {/* 条件显示配置 */}
+            <ConditionEditor
+              question={question}
+              allQuestions={allQuestions}
+              currentIndex={index}
+              onChange={(condition) => onUpdate({ ...question, condition })}
+            />
           </div>
         </div>
       )}
@@ -538,6 +558,216 @@ function ImageValidationEditor({ validation, onChange }: ImageValidationEditorPr
 }
 
 // ============================================
+// 条件显示编辑器
+// ============================================
+
+interface ConditionEditorProps {
+  question: LocalQuestion
+  allQuestions: LocalQuestion[]
+  currentIndex: number
+  onChange: (condition: QuestionCondition | undefined) => void
+}
+
+function ConditionEditor({ question, allQuestions, currentIndex, onChange }: ConditionEditorProps) {
+  // 只显示当前题目之前且有选项的题目（单选/多选/判断）
+  const availableQuestions = allQuestions.filter((q, idx) => {
+    if (idx >= currentIndex) return false
+    // 必须是单选/多选/判断类型
+    if (!['single', 'multiple', 'boolean'].includes(q.type)) return false
+    // 单选/多选需要有选项
+    if (['single', 'multiple'].includes(q.type)) {
+      return q.options && q.options.length > 0
+    }
+    return true // 判断题默认有是/否选项
+  })
+
+  const hasCondition = !!question.condition
+  const selectedQuestion = question.condition
+    ? allQuestions.find((_, idx) => idx === question.condition!.depends_on)
+    : null
+
+  // 获取选中题目的可选答案值
+  const getAvailableOptions = () => {
+    if (!selectedQuestion) return []
+    if (selectedQuestion.type === 'boolean') {
+      return [
+        { value: 'true', label: '是' },
+        { value: 'false', label: '否' },
+      ]
+    }
+    return selectedQuestion.options || []
+  }
+
+  const availableOptions = getAvailableOptions()
+
+  // 当前选中的触发值
+  const selectedValues = question.condition?.show_when
+    ? Array.isArray(question.condition.show_when)
+      ? question.condition.show_when
+      : [question.condition.show_when]
+    : []
+
+  const handleToggleCondition = () => {
+    if (hasCondition) {
+      onChange(undefined)
+    } else if (availableQuestions.length > 0) {
+      // 默认依赖第一个可用题目
+      const firstAvailable = availableQuestions[0]
+      const firstIndex = allQuestions.findIndex(q => q._id === firstAvailable._id)
+      onChange({
+        depends_on: firstIndex,
+        show_when: '',
+      })
+    }
+  }
+
+  const handleQuestionChange = (questionIndex: number) => {
+    onChange({
+      depends_on: questionIndex,
+      show_when: '',
+    })
+  }
+
+  const handleValueToggle = (value: string) => {
+    const newValues = selectedValues.includes(value)
+      ? selectedValues.filter(v => v !== value)
+      : [...selectedValues, value]
+    
+    onChange({
+      depends_on: question.condition!.depends_on,
+      show_when: newValues.length === 1 ? newValues[0] : newValues,
+    })
+  }
+
+  // 当前题目是第一题时不能设置条件
+  if (currentIndex === 0) {
+    return null
+  }
+
+  // 没有可用的前置题目时显示提示
+  if (availableQuestions.length === 0) {
+    // 检查是否有前置题目但没有选项
+    const hasQuestionWithoutOptions = allQuestions.some((q, idx) => {
+      if (idx >= currentIndex) return false
+      if (!['single', 'multiple', 'boolean'].includes(q.type)) return false
+      if (['single', 'multiple'].includes(q.type)) {
+        return !q.options || q.options.length === 0
+      }
+      return false
+    })
+    
+    return (
+      <div className="pt-4 border-t border-gray-200/50 dark:border-gray-700/50">
+        <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
+          <Icon icon="ph:git-branch" className="w-4 h-4" />
+          <span>
+            条件显示：
+            {hasQuestionWithoutOptions 
+              ? '前面的单选/多选题需要先添加选项'
+              : '前面没有可作为条件的题目（需要单选/多选/判断题）'
+            }
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="pt-4 border-t border-gray-200/50 dark:border-gray-700/50 space-y-3">
+      {/* 启用条件显示开关 */}
+      <label className="flex items-center gap-2 cursor-pointer select-none">
+        <div
+          className={cn(
+            'relative w-10 h-6 rounded-full transition-all duration-300',
+            hasCondition
+              ? 'bg-purple-500'
+              : 'bg-gray-300 dark:bg-gray-600'
+          )}
+          onClick={handleToggleCondition}
+        >
+          <div
+            className={cn(
+              'absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-300',
+              hasCondition ? 'left-5' : 'left-1'
+            )}
+          />
+        </div>
+        <span className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+          <Icon icon="ph:git-branch" className={cn('w-4 h-4', hasCondition ? 'text-purple-500' : 'text-gray-400')} />
+          条件显示
+        </span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">（根据前面题目的答案决定是否显示此题）</span>
+      </label>
+
+      {/* 条件配置 */}
+      {hasCondition && (
+        <div className="pl-4 space-y-3 animate-in slide-in-from-top-2 duration-200">
+          {/* 选择依赖题目 */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm text-gray-600 dark:text-gray-400">当</span>
+            <select
+              value={question.condition?.depends_on ?? ''}
+              onChange={(e) => handleQuestionChange(parseInt(e.target.value))}
+              className={cn(
+                'px-3 py-2 rounded-xl text-sm',
+                'bg-gray-50 dark:bg-gray-800/50',
+                'border border-gray-200 dark:border-gray-700',
+                'text-gray-900 dark:text-white',
+                'focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent',
+                'transition-all duration-200'
+              )}
+            >
+              {availableQuestions.map((q, _) => {
+                const realIndex = allQuestions.findIndex(aq => aq._id === q._id)
+                return (
+                  <option key={q._id} value={realIndex}>
+                    第{realIndex + 1}题: {q.title.slice(0, 20)}{q.title.length > 20 ? '...' : ''}
+                  </option>
+                )
+              })}
+            </select>
+            <span className="text-sm text-gray-600 dark:text-gray-400">的答案为以下值时显示：</span>
+          </div>
+
+          {/* 选择触发值 */}
+          {availableOptions.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {availableOptions.map((option) => {
+                const isSelected = selectedValues.includes(option.value)
+                return (
+                  <button
+                    key={option.value}
+                    onClick={() => handleValueToggle(option.value)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200',
+                      'border',
+                      isSelected
+                        ? 'bg-purple-500/10 dark:bg-purple-500/20 border-purple-500/50 text-purple-600 dark:text-purple-400'
+                        : 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-purple-500/30'
+                    )}
+                  >
+                    {isSelected && <Icon icon="ph:check" className="w-3.5 h-3.5 inline mr-1.5" />}
+                    {option.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* 提示 */}
+          {selectedValues.length === 0 && (
+            <p className="text-xs text-amber-500 flex items-center gap-1">
+              <Icon icon="ph:warning" className="w-3.5 h-3.5" />
+              请至少选择一个触发值
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
 // 添加题目选择器
 // ============================================
 
@@ -663,6 +893,7 @@ export function SurveyEditModal({
           is_pinned: q.is_pinned ?? false,
           order: q.order,
           validation: q.validation ?? undefined,
+          condition: q.condition ?? undefined,
         }))
       setQuestions(localQuestions)
     }
@@ -908,6 +1139,7 @@ export function SurveyEditModal({
         is_pinned: q.is_pinned ?? false,
         order: index,
         validation: q.validation,
+        condition: q.condition,
       })),
     }
 
@@ -1130,6 +1362,7 @@ export function SurveyEditModal({
                         onUpdate={updateQuestion}
                         onDelete={() => deleteQuestion(question._id)}
                         onDuplicate={() => duplicateQuestion(question)}
+                        allQuestions={questions}
                       />
                     ))}
                   </div>
