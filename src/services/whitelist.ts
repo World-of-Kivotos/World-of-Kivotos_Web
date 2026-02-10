@@ -14,10 +14,13 @@ import type {
 /**
  * 获取白名单列表查询参数
  */
+export type SearchType = 'name' | 'uuid'
+
 export interface GetWhitelistParams {
   page?: number
   size?: number
   search?: string
+  searchType?: SearchType
   source?: WhitelistSource
   sort?: string
   order?: 'asc' | 'desc'
@@ -38,6 +41,7 @@ export const whitelistApi = {
         page: params?.page || 1,
         size: params?.size || 20,
         search: params?.search,
+        search_type: params?.searchType || 'name',
         source: params?.source,
         sort: params?.sort,
         order: params?.order,

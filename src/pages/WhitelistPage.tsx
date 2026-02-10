@@ -10,6 +10,7 @@ import {
   useBatchOperation,
 } from '@/hooks/useWhitelist'
 import type { WhitelistEntry, WhitelistSource, SortConfig } from '@/types/whitelist'
+import type { SearchType } from '@/services/whitelist'
 
 /**
  * 来源标签颜色映射
@@ -55,6 +56,7 @@ export function WhitelistPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [searchTerm, setSearchTerm] = useState('')
+  const [searchType, setSearchType] = useState<SearchType>('name')
   const [sourceFilter, setSourceFilter] = useState<WhitelistSource | ''>('')
   const [sortConfig, setSortConfig] = useState<SortConfig | undefined>()
   const [selectedKeys, setSelectedKeys] = useState<Set<string | number>>(new Set())
@@ -71,6 +73,7 @@ export function WhitelistPage() {
     page,
     size: pageSize,
     search: searchTerm || undefined,
+    searchType,
     source: sourceFilter || undefined,
     sort: sortConfig?.key,
     order: sortConfig?.direction,
@@ -265,9 +268,9 @@ export function WhitelistPage() {
       <div className="flex items-center justify-between gap-4 flex-wrap shrink-0">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           {/* 搜索框 */}
-          <div className="relative flex-1 max-w-md">
+          <div className="relative flex-1 max-w-md flex">
             <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -276,11 +279,22 @@ export function WhitelistPage() {
             </svg>
             <input
               type="text"
-              placeholder="搜索玩家名或UUID..."
+              placeholder={searchType === 'name' ? '搜索玩家名...' : '搜索UUID...'}
               value={searchTerm}
               onChange={(e) => handleSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              className="w-full pl-10 pr-4 py-2.5 rounded-l-xl border border-r-0 border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
             />
+            <select
+              value={searchType}
+              onChange={(e) => {
+                setSearchType(e.target.value as SearchType)
+                setPage(1)
+              }}
+              className="px-3 py-2.5 rounded-r-xl border border-gray-200 bg-white text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent whitespace-nowrap"
+            >
+              <option value="name">玩家名</option>
+              <option value="uuid">UUID</option>
+            </select>
           </div>
 
           {/* 来源筛选 */}
