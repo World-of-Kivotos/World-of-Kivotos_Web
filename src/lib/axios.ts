@@ -37,11 +37,13 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
-    // 处理 401 未授权错误
+    // 处理 401 未授权: 清除登录态并跳登录页 (避免在登录页自身循环跳转)
     if (error.response?.status === 401) {
       localStorage.removeItem('auth_token')
-      // 可以在这里跳转到登录页面
-      // window.location.href = '/login'
+      localStorage.removeItem('user_info')
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }

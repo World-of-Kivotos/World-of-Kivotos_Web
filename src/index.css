@@ -1,351 +1,165 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-/* 自定义 CSS 变量 - MaiLauncher 风格 */
-@theme {
-  --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(0 0% 3.9%);
-  --color-card: hsl(0 0% 100%);
-  --color-card-foreground: hsl(0 0% 3.9%);
-  --color-popover: hsl(0 0% 100%);
-  --color-popover-foreground: hsl(0 0% 3.9%);
-  --color-primary: hsl(200 100% 36%);
-  --color-primary-foreground: hsl(0 0% 98%);
-  --color-secondary: hsl(0 0% 96.1%);
-  --color-secondary-foreground: hsl(0 0% 9%);
-  --color-muted: hsl(0 0% 96.1%);
-  --color-muted-foreground: hsl(0 0% 45.1%);
-  --color-accent: hsl(0 0% 96.1%);
-  --color-accent-foreground: hsl(0 0% 9%);
-  --color-destructive: hsl(0 84.2% 60.2%);
-  --color-destructive-foreground: hsl(0 0% 98%);
-  --color-border: hsl(0 0% 89.8%);
-  --color-input: hsl(0 0% 89.8%);
-  --color-ring: hsl(200 100% 36%);
-  --radius: 0.5rem;
+/* 深色模式: 通过 <html class="dark"> 切换 */
+@custom-variant dark (&:is(.dark *));
+
+/*
+  设计 token 体系 (shadcn-on-Tailwind4 规范)。
+  - 中性灰为底, primary = Blue Archive 蓝 (hsl 200 100% 36% 一脉, 配套深浅阶)
+  - 语义色 success/warning/info 补足, 替代旧代码 113 处硬编码 from-[#xxxx] 渐变
+  - light / dark 双套, 组件统一用 token, 不再写任意色值
+*/
+:root {
+  --radius: 0.625rem;
+
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(222 20% 11%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(222 20% 11%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(222 20% 11%);
+
+  --primary: hsl(200 98% 39%);
+  --primary-foreground: hsl(0 0% 100%);
+
+  --secondary: hsl(210 20% 96%);
+  --secondary-foreground: hsl(222 20% 20%);
+  --muted: hsl(210 20% 96%);
+  --muted-foreground: hsl(215 16% 47%);
+  --accent: hsl(200 60% 95%);
+  --accent-foreground: hsl(200 98% 28%);
+
+  --destructive: hsl(0 72% 51%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --success: hsl(142 71% 40%);
+  --success-foreground: hsl(0 0% 100%);
+  --warning: hsl(36 92% 48%);
+  --warning-foreground: hsl(0 0% 100%);
+  --info: hsl(200 98% 39%);
+  --info-foreground: hsl(0 0% 100%);
+
+  --border: hsl(214 20% 90%);
+  --input: hsl(214 20% 90%);
+  --ring: hsl(200 98% 39%);
+
+  /* 侧栏专用 token */
+  --sidebar: hsl(210 25% 98%);
+  --sidebar-foreground: hsl(222 20% 20%);
+  --sidebar-primary: hsl(200 98% 39%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(200 60% 93%);
+  --sidebar-accent-foreground: hsl(200 98% 28%);
+  --sidebar-border: hsl(214 20% 90%);
+  --sidebar-ring: hsl(200 98% 39%);
 }
 
-/* 暗色模式 */
-@variant dark (&:where(.dark, .dark *));
+.dark {
+  --background: hsl(222 24% 9%);
+  --foreground: hsl(210 20% 96%);
+  --card: hsl(222 22% 12%);
+  --card-foreground: hsl(210 20% 96%);
+  --popover: hsl(222 22% 12%);
+  --popover-foreground: hsl(210 20% 96%);
 
-@theme {
-  /* 暗色模式覆盖需要在组件中使用 dark: 前缀 */
+  --primary: hsl(199 89% 56%);
+  --primary-foreground: hsl(222 47% 11%);
+
+  --secondary: hsl(217 19% 18%);
+  --secondary-foreground: hsl(210 20% 92%);
+  --muted: hsl(217 19% 18%);
+  --muted-foreground: hsl(215 16% 62%);
+  --accent: hsl(217 30% 20%);
+  --accent-foreground: hsl(199 89% 80%);
+
+  --destructive: hsl(0 63% 54%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --success: hsl(142 60% 48%);
+  --success-foreground: hsl(0 0% 100%);
+  --warning: hsl(36 90% 55%);
+  --warning-foreground: hsl(222 47% 11%);
+  --info: hsl(199 89% 56%);
+  --info-foreground: hsl(222 47% 11%);
+
+  --border: hsl(217 19% 22%);
+  --input: hsl(217 19% 24%);
+  --ring: hsl(199 89% 56%);
+
+  --sidebar: hsl(222 24% 11%);
+  --sidebar-foreground: hsl(210 20% 92%);
+  --sidebar-primary: hsl(199 89% 56%);
+  --sidebar-primary-foreground: hsl(222 47% 11%);
+  --sidebar-accent: hsl(217 30% 18%);
+  --sidebar-accent-foreground: hsl(199 89% 80%);
+  --sidebar-border: hsl(217 19% 22%);
+  --sidebar-ring: hsl(199 89% 56%);
 }
 
-/* 基础样式 */
-* {
-  border-color: var(--color-border);
+/* 把 CSS 变量映射为 Tailwind 工具类 (bg-background / text-primary / border-border ...) */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
-  font-feature-settings: "rlig" 1, "calt" 1;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* ============================================
-   MaiLauncher 风格动画
-   ============================================ */
-
-/* 液态背景动画 */
-@keyframes blob {
-  0% {
-    transform: translate(0px, 0px) scale(1);
+@layer base {
+  * {
+    border-color: var(--border);
   }
-  33% {
-    transform: translate(30px, -50px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
-  100% {
-    transform: translate(0px, 0px) scale(1);
-  }
-}
-
-@keyframes blob-slow {
-  0%, 100% { 
-    transform: translate(0, 0) scale(1);
-  }
-  25% { 
-    transform: translate(30vw, -15vh) scale(1.2);
-  }
-  50% { 
-    transform: translate(-20vw, 20vh) scale(0.9);
-  }
-  75% { 
-    transform: translate(15vw, -10vh) scale(1.1);
-  }
-}
-
-.animate-blob {
-  animation: blob 7s infinite;
-}
-
-.animate-blob-slow {
-  animation: blob-slow 25s ease-in-out infinite;
-}
-
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-
-.animation-delay-4000 {
-  animation-delay: 4s;
-}
-
-/* 入场动画 */
-@keyframes slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slide-down {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slide-left {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes slide-right {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes scale-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
-@keyframes bounce-in {
-  0% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  50% {
-    transform: scale(1.05);
-  }
-  70% {
-    transform: scale(0.9);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.animate-slide-up {
-  animation: slide-up 0.35s ease-out forwards;
-}
-
-.animate-slide-down {
-  animation: slide-down 0.35s ease-out forwards;
-}
-
-.animate-slide-left {
-  animation: slide-left 0.35s ease-out forwards;
-}
-
-.animate-slide-right {
-  animation: slide-right 0.35s ease-out forwards;
-}
-
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out forwards;
-}
-
-.animate-scale-in {
-  animation: scale-in 0.3s ease-out forwards;
-}
-
-.animate-bounce-in {
-  animation: bounce-in 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
-}
-
-/* 脉冲光晕效果 */
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 5px currentColor, 0 0 10px currentColor, 0 0 15px currentColor;
-  }
-  50% {
-    box-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor;
-  }
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-/* 浮动动画 */
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-/* 闪烁动画 */
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-.animate-shimmer {
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.4),
-    transparent
-  );
-  background-size: 200% 100%;
-  animation: shimmer 2s infinite;
-}
-
-/* 旋转动画 */
-@keyframes spin-slow {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.animate-spin-slow {
-  animation: spin-slow 3s linear infinite;
-}
-
-/* 渐变背景动画 */
-@keyframes gradient-shift {
-  0%, 100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
-.animate-gradient {
-  background-size: 200% 200%;
-  animation: gradient-shift 5s ease infinite;
-}
-
-/* 毛玻璃效果增强 */
-.glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-}
-
-.glass-dark {
-  background: rgba(28, 28, 30, 0.8);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-}
-
-/* 滚动条美化 */
+/* 细滚动条 (token 化) */
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 119, 182, 0.3) transparent;
+  scrollbar-color: var(--border) transparent;
 }
-
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
-
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 119, 182, 0.3);
+  background-color: var(--border);
   border-radius: 3px;
 }
-
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(0, 119, 182, 0.5);
-}
-
-/* 隐藏滚动条但保持滚动功能 */
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-/* 优化渲染性能 */
-.gpu-accelerate {
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  perspective: 1000px;
-}
-
-/* 减少动画（尊重用户偏好） */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-

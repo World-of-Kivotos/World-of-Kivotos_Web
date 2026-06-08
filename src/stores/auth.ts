@@ -40,7 +40,12 @@ export const useAuthStore = create<AuthState>()(
             return false
           }
         }
-        return get().isAuthenticated
+        // 无 token/user: 明确置为未认证并返回 false
+        // (修复: 旧实现返回 get().isAuthenticated, localStorage 被清后内存态可能残留 true)
+        if (get().isAuthenticated || get().token) {
+          set({ token: null, user: null, isAuthenticated: false })
+        }
+        return false
       },
     }),
     {
