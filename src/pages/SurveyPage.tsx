@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Check, X } from 'lucide-react'
+import { Check, X, Plus, Pencil } from 'lucide-react'
 import { StatCard } from '@/components/StatCard'
+import { SurveyEditModal } from '@/components/SurveyEditModal'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +12,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useSubmissions, useSubmissionStats, useSubmissionDetail, useReviewSubmission } from '@/hooks/useSubmission'
 import { useSurveys, useToggleSurveyActive } from '@/hooks/useSurvey'
+import { useAddWhitelist } from '@/hooks/useWhitelist'
 import { useAuthStore } from '@/stores/auth'
 import type { SubmissionStatus, SubmissionAnswer } from '@/types/submission'
 
@@ -37,15 +39,26 @@ function renderAnswer(a: SubmissionAnswer): string {
 function ReviewDialog({ id, onClose }: { id: number; onClose: () => void }) {
   const detail = useSubmissionDetail(id)
   const review = useReviewSubmission()
+  const addWhitelist = useAddWhitelist()
   const reviewer = useAuthStore((s) => s.user)
   const [note, setNote] = useState('')
   const d = detail.data
 
   const act = (status: 'approved' | 'rejected') => {
     if (!d) return
+    const playerName = d.player_name
     review.mutate(
-      { submissionId: d.id, data: { status, review_note: note || undefined }, playerName: d.player_name, reviewerName: reviewer?.displayName },
-      { onSuccess: onClose }
+      { submissionId: d.id, data: { status, review_note: note || undefined }, playerName, reviewerName: reviewer?.displayName },
+      {
+        onSuccess: () => {
+          // 审核通过后由面板侧发起加白, source 固定 ADMIN (mod Source 枚举不接受 API)。
+          // useAddWhitelist 自带成功/失败 toast, 拒绝时不加白。
+          if (status === 'approved') {
+            addWhitelist.mutate({ name: playerName, source: 'ADMIN' })
+          }
+          onClose()
+        },
+      }
     )
   }
 
@@ -165,10 +178,27 @@ function SubmissionsTab() {
 function SurveysTab() {
   const surveys = useSurveys({ size: 50 })
   const toggle = useToggleSurveyActive()
+  const [editorOpen, setEditorOpen] = useState(false)
+  // null = 新建模式; number = 编辑该问卷。编辑器自带详情拉取与保存, 这里只管开关与目标 id。
+  const [editingId, setEditingId] = useState<number | null>(null)
+
+  const openCreate = () => {
+    setEditingId(null)
+    setEditorOpen(true)
+  }
+  const openEdit = (id: number) => {
+    setEditingId(id)
+    setEditorOpen(true)
+  }
 
   return (
     <Card>
       <CardContent className="p-4">
+        <div className="mb-4 flex justify-end">
+          <Button size="sm" onClick={openCreate}>
+            <Plus /> 新建问卷
+          </Button>
+        </div>
         <div className="rounded-lg border">
           <Table>
             <TableHeader>
@@ -197,9 +227,14 @@ function SurveysTab() {
                     <TableCell className="font-mono tabular-nums">{sv.submission_count}</TableCell>
                     <TableCell>{sv.is_active ? <Badge variant="success">启用</Badge> : <Badge variant="secondary">停用</Badge>}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="outline" size="sm" disabled={toggle.isPending} onClick={() => toggle.mutate({ surveyId: sv.id, isActive: !sv.is_active })}>
-                        {sv.is_active ? '停用' : '启用'}
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => openEdit(sv.id)}>
+                          <Pencil /> 编辑
+                        </Button>
+                        <Button variant="outline" size="sm" disabled={toggle.isPending} onClick={() => toggle.mutate({ surveyId: sv.id, isActive: !sv.is_active })}>
+                          {sv.is_active ? '停用' : '启用'}
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -208,6 +243,7 @@ function SurveysTab() {
           </Table>
         </div>
       </CardContent>
+      <SurveyEditModal open={editorOpen} onOpenChange={setEditorOpen} surveyId={editingId} />
     </Card>
   )
 }

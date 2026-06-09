@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { submissionApi } from '@/services/survey'
-import { whitelistApi } from '@/services/whitelist'
 import { whitelistKeys } from '@/hooks/useWhitelist'
 import type { GetSubmissionsParams, ReviewSubmissionRequest } from '@/types/submission'
 import { toast } from 'sonner'
@@ -53,47 +52,31 @@ export function useSubmissionStats() {
 }
 
 /**
- * 审核提交（通过时自动添加白名单）
+ * 审核提交
+ *
+ * 加白职责单点在面板侧 (ReviewDialog 复用 useAddWhitelist): 审核通过后由调用方在 onSuccess
+ * 发起加白。此处不再内联加白, 否则会与面板侧对 mod 的 /v1/whitelist 重复写入 (第二次命中
+ * "已存在" 记录会触发误导性失败 toast)。注意: 审核走问卷后端 (survey.ts 用 SURVEY_API_BASE
+ * 绝对地址), 加白走 mod 后端 (默认 /api), 两者是同一 axios 实例但目标后端不同。
  */
 export function useReviewSubmission() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ 
-      submissionId, 
+    mutationFn: ({
+      submissionId,
       data,
-      playerName,
-      reviewerName,
-    }: { 
+    }: {
       submissionId: number
       data: ReviewSubmissionRequest
       playerName: string
       reviewerName?: string
-    }) => {
-      // 先执行审核
-      await submissionApi.reviewSubmission(submissionId, data)
-      
-      // 如果审核通过，自动添加白名单
-      if (data.status === 'approved' && playerName) {
-        try {
-          await whitelistApi.addWhitelist({
-            name: playerName,
-            source: 'ADMIN',
-            added_by_name: reviewerName || '审核系统',
-          })
-        } catch (error) {
-          // 白名单添加失败不影响审核结果，但给出提示
-          const message = error instanceof Error ? error.message : '添加白名单失败'
-          // 如果是玩家已存在，不算错误
-          if (!message.includes('已存在') && !message.includes('already exists')) {
-            throw new Error(`审核通过但添加白名单失败: ${message}`)
-          }
-        }
-      }
-    },
+    }) => submissionApi.reviewSubmission(submissionId, data),
     onSuccess: (_, variables) => {
       if (variables.data.status === 'approved') {
-        toast.success(`审核通过，玩家 ${variables.playerName} 已加入白名单`)
+        // 加白结果由面板侧 useAddWhitelist 单独 toast, 此处只确认审核动作本身,
+        // 避免在加白真正完成前就谎报"已加入白名单"。
+        toast.success(`审核通过: ${variables.playerName}`)
       } else {
         toast.success(`审核已拒绝`)
       }
