@@ -1,3 +1,4 @@
+import { isAxiosError } from 'axios'
 import api from '@/lib/axios'
 import type { ApiResponse } from '@/types/whitelist'
 
@@ -70,10 +71,20 @@ export const authApi = {
    * 管理员注册
    */
   async register(data: RegisterRequest): Promise<void> {
-    const response = await api.post<ApiResponse<{ username: string; message: string }>>('/v1/admin/register', data)
-    
-    if (!response.data.success) {
-      throw new Error(response.data.error?.message || '注册失败')
+    try {
+      const response = await api.post<ApiResponse<{ username: string; message: string }>>('/v1/admin/register', data)
+      if (!response.data.success) {
+        throw new Error(response.data.error?.message || '注册失败')
+      }
+    } catch (err) {
+      // 后端校验失败 (令牌不存在/已过期、用户名重复、格式不符等) 以 HTTP 400 返回, 经 axios 抛出。
+      // mod 的 error 字段是字符串, 提取真实文案而非通用 "Request failed with status code 400"。
+      if (isAxiosError(err)) {
+        const e = err.response?.data?.error
+        const msg = typeof e === 'string' ? e : e?.message
+        if (msg) throw new Error(msg)
+      }
+      throw err
     }
   },
 

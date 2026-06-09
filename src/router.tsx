@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-router'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/pages/LoginPage'
+import { RegisterPage } from '@/pages/RegisterPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { WhitelistPage } from '@/pages/WhitelistPage'
 import { MonitorPage } from '@/pages/MonitorPage'
@@ -30,6 +31,12 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
   component: LoginPage,
+})
+
+const registerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/register',
+  component: RegisterPage,
 })
 
 // 受保护布局路由 (pathless): 进入前校验登录态, 未登录跳 /login
@@ -91,6 +98,7 @@ const settingsRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
+  registerRoute,
   appRoute.addChildren([
     indexRoute,
     dashboardRoute,
