@@ -13,11 +13,11 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      // 白名单 API 代理
-      '/api/v1': {
-        target: 'https://api.mcwok.cn',
+      // 白名单/服务器/日志 API -> AccessHub mod 的 HTTP 服务 (:22222, 纯 http)
+      '/api': {
+        target: 'http://api.mcwok.cn:22222',
         changeOrigin: true,
-        secure: true,
+        secure: false,
       },
       // 问卷 API 代理
       '/survey-api': {

@@ -32,10 +32,10 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="白名单"
-          value={stats.data?.active_entries ?? '—'}
+          value={stats.data?.activePlayers ?? '—'}
           icon={ShieldCheck}
           loading={stats.isLoading}
-          hint={stats.data ? `共 ${stats.data.total_entries} 条 · 待补 UUID ${stats.data.uuid_pending_entries}` : undefined}
+          hint={stats.data ? `共 ${stats.data.totalPlayers} 条 · 近期新增 ${stats.data.recentAdditions}` : undefined}
         />
         <StatCard
           label="在线玩家"

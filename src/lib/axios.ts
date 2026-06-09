@@ -1,7 +1,9 @@
 import axios from 'axios'
 
 // API 基础配置
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.mcwok.cn/api'
+// 默认相对 '/api' (dev 走 vite 代理转发到 api.mcwok.cn:22222, 避免 CORS/混合内容)。
+// 生产部署设 VITE_API_BASE_URL=http://api.mcwok.cn:22222/api (或反代后的 https 地址)。
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const API_TOKEN = import.meta.env.VITE_API_TOKEN || ''
 
 // 创建 axios 实例

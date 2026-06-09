@@ -67,23 +67,14 @@ export interface ApiResponse<T> {
 }
 
 /**
- * 白名单统计信息
+ * 白名单统计信息 (对齐 v2 mod WhitelistManager.getStats 实际返回)
  */
 export interface WhitelistStats {
-  total_entries: number
-  active_entries: number
-  uuid_pending_entries: number
-  recent_additions: number
-  recent_deletions: number
-  recent_uuid_updates: number
-  source_breakdown: Record<WhitelistSource, number>
-  sync_status: string
-  last_sync: string
-  cache_status: {
-    loaded: boolean
-    size: number
-    last_refresh: string
-  }
+  totalPlayers: number
+  activePlayers: number
+  sourceCounts: Partial<Record<WhitelistSource, number>>
+  recentAdditions: number
+  growthTrend: string
 }
 
 /**
