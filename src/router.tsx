@@ -12,6 +12,8 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { WhitelistPage } from '@/pages/WhitelistPage'
 import { MonitorPage } from '@/pages/MonitorPage'
 import { PlayersPage } from '@/pages/PlayersPage'
+import { LogsPage } from '@/pages/LogsPage'
+import { SettingsPage } from '@/pages/SettingsPage'
 import { Toaster } from '@/components/ui/sonner'
 import { useAuthStore } from '@/stores/auth'
 
@@ -79,12 +81,12 @@ const surveyRoute = createRoute({
 const logsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/logs',
-  component: () => <Placeholder title="操作日志" description="白名单操作与未授权访问审计" />,
+  component: LogsPage,
 })
 const settingsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/settings',
-  component: () => <Placeholder title="设置" description="API 令牌、管理员、主题" />,
+  component: SettingsPage,
 })
 
 const routeTree = rootRoute.addChildren([

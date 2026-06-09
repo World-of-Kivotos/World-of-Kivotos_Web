@@ -102,6 +102,20 @@ export const authApi = {
   },
 
   /**
+   * 生成管理员注册令牌 (用于邀请新管理员自助注册)
+   */
+  async generateRegistrationToken(expiryHours = 24): Promise<{ token: string; expiryHours: number }> {
+    const response = await api.post<ApiResponse<{ token: string; expiryHours: number; message: string }>>(
+      '/v1/admin/generate-token',
+      { expiryHours }
+    )
+    if (response.data.success && response.data.data) {
+      return { token: response.data.data.token, expiryHours: response.data.data.expiryHours }
+    }
+    throw new Error(response.data.error?.message || '生成注册令牌失败')
+  },
+
+  /**
    * 登出（清除本地token）
    */
   logout(): void {
