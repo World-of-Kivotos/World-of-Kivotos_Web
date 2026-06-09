@@ -144,6 +144,13 @@ export function PlayersPage() {
     setQuery(nameInput.trim())
   }
 
+  // 点击在线列表的某玩家: 填入并触发查询, 滚到顶部让上方详情卡可见
+  const openPlayer = (name: string) => {
+    setNameInput(name)
+    setQuery(name)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const p = lookup.data
 
   return (
@@ -316,6 +323,7 @@ export function PlayersPage() {
           <CardTitle className="flex items-center gap-2 text-base">
             在线列表
             {online.data && <Badge variant="secondary">{online.data.count} / {online.data.maxPlayers}</Badge>}
+            <span className="ml-auto text-xs font-normal text-muted-foreground">点击玩家查看详情</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -339,7 +347,11 @@ export function PlayersPage() {
                   <TableRow><TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">暂无在线玩家</TableCell></TableRow>
                 ) : (
                   online.data.players.map((pl) => (
-                    <TableRow key={pl.uuid}>
+                    <TableRow
+                      key={pl.uuid}
+                      onClick={() => openPlayer(pl.name)}
+                      className="cursor-pointer hover:bg-muted/50"
+                    >
                       <TableCell className="font-medium">{pl.name}</TableCell>
                       <TableCell><Badge variant="outline" className="font-normal">{pl.gameMode}</Badge></TableCell>
                       <TableCell className="text-sm text-muted-foreground">{dim(pl.dimension)}</TableCell>
