@@ -136,6 +136,9 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* 等宽字体: 数据大屏数字用 font-mono, 对齐易扫读 (监控盘风格核心) */
+  --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
 }
 
 @layer base {

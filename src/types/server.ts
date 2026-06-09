@@ -1,111 +1,87 @@
-/**
- * 服务器状态类型
+/*
+ * 服务器 API 类型 (对齐 v2 Forge mod: /api/v1/server/performance 与 /api/v1/server/players)。
+ * 性能数据形状随 spark 是否安装而异 (spark 精确 / JVM fallback), 故多数字段可选。
  */
-export interface ServerStatus {
-  online: boolean
-  spark_available: boolean
-  plugin_version: string
-  timestamp: number
+
+export interface PerfTps {
+  available?: boolean
+  values?: { last_10s?: number; last_1m?: number; last_5m?: number }
+  server_load_percent?: number
+  note?: string
 }
 
-/**
- * TPS 数据
- */
-export interface TpsData {
-  values: {
-    last_1m: number
-    last_5m: number
-    last_15m: number
-  }
+export interface MsptWindow {
+  mean: number
+  max?: number
+  min?: number
+  percentile_95?: number
 }
 
-/**
- * MSPT 数据
- */
-export interface MsptData {
-  values: {
-    last_1m: number
-    last_5m: number
-    last_15m: number
-  }
+export interface PerfMspt {
+  available?: boolean
+  values?: { last_1m?: MsptWindow; last_5m?: MsptWindow }
+  note?: string
 }
 
-/**
- * 内存数据
- */
-export interface MemoryData {
+export interface PerfCpuWindows {
+  last_10s?: number
+  last_1m?: number
+  last_15m?: number
+}
+
+export interface PerfCpu {
+  available?: boolean
+  system?: PerfCpuWindows
+  process?: PerfCpuWindows
+  note?: string
+}
+
+export interface PerfMemoryUsage {
+  init?: number
   used: number
+  committed?: number
   max: number
-  free: number
+  usage_percent?: number
 }
 
-/**
- * CPU 数据
- */
-export interface CpuData {
-  process: number
-  system: number
+export interface PerfMemory {
+  heap?: PerfMemoryUsage
+  non_heap?: PerfMemoryUsage
+  source?: string
 }
 
-/**
- * 服务器性能数据
- */
+export interface PerfThreads {
+  current_thread_count?: number
+  daemon_thread_count?: number
+  peak_thread_count?: number
+  total_started_thread_count?: number
+  deadlocked_threads?: number
+}
+
 export interface ServerPerformance {
-  tps: TpsData
-  mspt: MsptData
-  memory: MemoryData
-  cpu: CpuData
-  timestamp: number
+  source?: string
+  sparkAvailable?: boolean
+  tps?: PerfTps
+  mspt?: PerfMspt
+  cpu?: PerfCpu
+  memory?: PerfMemory
+  threads?: PerfThreads
 }
 
-/**
- * 服务器详细信息
- */
-export interface ServerInfo {
+export interface OnlinePlayer {
   name: string
-  version: string
-  bukkit_version: string
-  motd: string
-  max_players: number
-  online_players: number
-  view_distance: number
-  online_mode: boolean
-  default_game_mode: string
-  worlds: string[]
+  uuid: string
+  dimension: string
+  x: number
+  y: number
+  z: number
+  health: number
+  ping: number
+  gameMode: string
 }
 
-/**
- * 在线玩家数量
- */
-export interface OnlinePlayersCount {
+export interface OnlinePlayers {
   count: number
-  max: number
-  players: string[]
-}
-
-/**
- * 健康检查
- */
-export interface HealthCheck {
-  status: string
-  uptime: number
-  version: string
-  components: {
-    cache: string
-    data_collector: string
-  }
-  timestamp: number
-}
-
-/**
- * 格式化后的服务器状态（用于 UI 显示）
- */
-export interface FormattedServerStatus {
-  online: boolean
-  players: number
   maxPlayers: number
-  tps: number
-  memory: number
-  maxMemory: number
-  uptime: string
+  players: OnlinePlayer[]
 }

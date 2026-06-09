@@ -8,6 +8,7 @@ import {
 import { AppShell } from '@/components/layout/AppShell'
 import { Placeholder } from '@/components/Placeholder'
 import { LoginPage } from '@/pages/LoginPage'
+import { DashboardPage } from '@/pages/DashboardPage'
 import { Toaster } from '@/components/ui/sonner'
 import { useAuthStore } from '@/stores/auth'
 
@@ -50,7 +51,7 @@ const indexRoute = createRoute({
 const dashboardRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/dashboard',
-  component: () => <Placeholder title="概览" description="白名单统计、服务器性能快照、最近操作日志" />,
+  component: DashboardPage,
 })
 const whitelistRoute = createRoute({
   getParentRoute: () => appRoute,
