@@ -27,6 +27,18 @@ function fmtDate(s?: string) {
   return Number.isNaN(d.getTime()) ? s : d.toLocaleString('zh-CN', { hour12: false })
 }
 
+// 派生"添加渠道": PLAYER/SYSTEM 为玩家自助注册; 否则按 addedByUuid 标记区分
+// (mod 端: WEBUI=网页后台, CONSOLE=终端, 真实玩家 uuid=游戏内命令, API/空=程序调用)
+function channelLabel(entry: WhitelistEntry): string {
+  if (entry.source === 'PLAYER' || entry.source === 'SYSTEM') return '自助注册'
+  const u = entry.addedByUuid
+  if (u === 'WEBUI') return '网页'
+  if (u === 'CONSOLE') return '终端'
+  if (!u || u === 'API' || u === '00000000-0000-0000-0000-000000000000') return '程序'
+  if (/^[0-9a-fA-F-]{36}$/.test(u)) return '游戏内'
+  return '程序'
+}
+
 export function WhitelistPage() {
   const [page, setPage] = useState(1)
   const [searchInput, setSearchInput] = useState('')
@@ -128,7 +140,7 @@ export function WhitelistPage() {
                       <TableCell className="font-mono text-xs text-muted-foreground">
                         {entry.uuid ? entry.uuid : <Badge variant="warning">待补全</Badge>}
                       </TableCell>
-                      <TableCell><Badge variant="outline" className="font-normal">{entry.source}</Badge></TableCell>
+                      <TableCell><Badge variant="outline" className="font-normal">{channelLabel(entry)}</Badge></TableCell>
                       <TableCell className="text-sm text-muted-foreground">{entry.addedByName || '—'}</TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">{fmtDate(entry.addedAt)}</TableCell>
                       <TableCell className="text-right">
