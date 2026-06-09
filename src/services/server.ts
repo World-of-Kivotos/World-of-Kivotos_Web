@@ -1,5 +1,5 @@
 import api from '@/lib/axios'
-import type { ServerPerformance, OnlinePlayers } from '@/types/server'
+import type { ServerPerformance, OnlinePlayers, PlayerDetail } from '@/types/server'
 
 interface ApiResponse<T> {
   success: boolean
@@ -28,5 +28,16 @@ export const serverApi = {
       return response.data.data
     }
     throw new Error(response.data.error?.message || '获取在线玩家失败')
+  },
+
+  /** 单玩家详情查询 (?includeOffline=true 也返回离线基本信息)。 */
+  async getPlayer(name: string): Promise<PlayerDetail> {
+    const response = await api.get<ApiResponse<PlayerDetail>>('/v1/player', {
+      params: { name, includeOffline: true },
+    })
+    if (response.data.success && response.data.data) {
+      return response.data.data
+    }
+    throw new Error(response.data.error?.message || '查询玩家失败')
   },
 }

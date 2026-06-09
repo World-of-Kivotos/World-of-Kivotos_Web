@@ -10,6 +10,8 @@ import { Placeholder } from '@/components/Placeholder'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { WhitelistPage } from '@/pages/WhitelistPage'
+import { MonitorPage } from '@/pages/MonitorPage'
+import { PlayersPage } from '@/pages/PlayersPage'
 import { Toaster } from '@/components/ui/sonner'
 import { useAuthStore } from '@/stores/auth'
 
@@ -62,12 +64,12 @@ const whitelistRoute = createRoute({
 const monitorRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/monitor',
-  component: () => <Placeholder title="服务器监控" description="TPS / MSPT / CPU / 内存 / 线程" />,
+  component: MonitorPage,
 })
 const playersRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/players',
-  component: () => <Placeholder title="在线玩家" description="在线玩家列表与玩家信息查询" />,
+  component: PlayersPage,
 })
 const surveyRoute = createRoute({
   getParentRoute: () => appRoute,

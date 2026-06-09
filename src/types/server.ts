@@ -85,3 +85,30 @@ export interface OnlinePlayers {
   maxPlayers: number
   players: OnlinePlayer[]
 }
+
+/** /api/v1/player?name= 返回 (在线为完整数据, 离线仅 name+uuid)。多数字段可选。 */
+export interface PlayerLocation {
+  dimension: string
+  x: number
+  y: number
+  z: number
+}
+
+export interface PlayerVitals {
+  health?: number
+  maxHealth?: number
+  armor?: number
+  foodLevel?: number
+  level?: number
+}
+
+export interface PlayerDetail {
+  playerName: string
+  uuid: string
+  online: boolean
+  note?: string
+  gameMode?: string
+  ping?: number
+  location?: PlayerLocation
+  vitals?: PlayerVitals
+}
