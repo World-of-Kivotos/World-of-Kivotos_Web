@@ -18,8 +18,9 @@ import type {
   ReviewSubmissionRequest,
 } from '@/types/submission'
 
-// 问卷系统的 API 基础路径（使用不同的后端）
-const SURVEY_API_BASE = import.meta.env.VITE_SURVEY_API_URL || 'http://localhost:8000/api/v1'
+// 问卷系统的 API 基础路径（独立后端: questionnaire.mcwok.cn, 非 mod 的 api.mcwok.cn）
+// 本地起后端开发时用 VITE_SURVEY_API_URL=http://localhost:8000/api/v1 覆盖
+const SURVEY_API_BASE = import.meta.env.VITE_SURVEY_API_URL || 'https://questionnaire.mcwok.cn/api/v1'
 
 /**
  * 获取问卷列表查询参数
