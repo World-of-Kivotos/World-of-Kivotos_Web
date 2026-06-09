@@ -5,94 +5,94 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
-  设计 token 体系 (shadcn-on-Tailwind4 规范)。
-  - 中性灰为底, primary = Blue Archive 蓝 (hsl 200 100% 36% 一脉, 配套深浅阶)
-  - 语义色 success/warning/info 补足, 替代旧代码 113 处硬编码 from-[#xxxx] 渐变
-  - light / dark 双套, 组件统一用 token, 不再写任意色值
+  设计 token 体系 (shadcn-on-Tailwind4 规范) —— 纯中性灰阶, 不用品牌色。
+  - 浅色: 白 -> 灰; 深色: 黑 -> 白。primary 跟随前景 (浅色近黑 / 深色近白), 高对比好掌控。
+  - 状态色 success/warning/destructive 为功能色保留 (绿/琥珀/红); info 中性化, 全局无蓝。
+  - 组件统一用 token, 不再写任意色值。
 */
 :root {
   --radius: 0.625rem;
 
   --background: hsl(0 0% 100%);
-  --foreground: hsl(222 20% 11%);
+  --foreground: hsl(0 0% 9%);
   --card: hsl(0 0% 100%);
-  --card-foreground: hsl(222 20% 11%);
+  --card-foreground: hsl(0 0% 9%);
   --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(222 20% 11%);
+  --popover-foreground: hsl(0 0% 9%);
 
-  --primary: hsl(200 98% 39%);
-  --primary-foreground: hsl(0 0% 100%);
+  --primary: hsl(0 0% 9%);
+  --primary-foreground: hsl(0 0% 98%);
 
-  --secondary: hsl(210 20% 96%);
-  --secondary-foreground: hsl(222 20% 20%);
-  --muted: hsl(210 20% 96%);
-  --muted-foreground: hsl(215 16% 47%);
-  --accent: hsl(200 60% 95%);
-  --accent-foreground: hsl(200 98% 28%);
+  --secondary: hsl(0 0% 96%);
+  --secondary-foreground: hsl(0 0% 9%);
+  --muted: hsl(0 0% 96%);
+  --muted-foreground: hsl(0 0% 45%);
+  --accent: hsl(0 0% 94%);
+  --accent-foreground: hsl(0 0% 9%);
 
   --destructive: hsl(0 72% 51%);
-  --destructive-foreground: hsl(0 0% 100%);
-  --success: hsl(142 71% 40%);
-  --success-foreground: hsl(0 0% 100%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --success: hsl(142 60% 38%);
+  --success-foreground: hsl(0 0% 98%);
   --warning: hsl(36 92% 48%);
-  --warning-foreground: hsl(0 0% 100%);
-  --info: hsl(200 98% 39%);
-  --info-foreground: hsl(0 0% 100%);
+  --warning-foreground: hsl(0 0% 9%);
+  --info: hsl(0 0% 9%);
+  --info-foreground: hsl(0 0% 98%);
 
-  --border: hsl(214 20% 90%);
-  --input: hsl(214 20% 90%);
-  --ring: hsl(200 98% 39%);
+  --border: hsl(0 0% 90%);
+  --input: hsl(0 0% 90%);
+  --ring: hsl(0 0% 20%);
 
   /* 侧栏专用 token */
-  --sidebar: hsl(210 25% 98%);
-  --sidebar-foreground: hsl(222 20% 20%);
-  --sidebar-primary: hsl(200 98% 39%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(200 60% 93%);
-  --sidebar-accent-foreground: hsl(200 98% 28%);
-  --sidebar-border: hsl(214 20% 90%);
-  --sidebar-ring: hsl(200 98% 39%);
+  --sidebar: hsl(0 0% 98%);
+  --sidebar-foreground: hsl(0 0% 20%);
+  --sidebar-primary: hsl(0 0% 9%);
+  --sidebar-primary-foreground: hsl(0 0% 98%);
+  --sidebar-accent: hsl(0 0% 93%);
+  --sidebar-accent-foreground: hsl(0 0% 9%);
+  --sidebar-border: hsl(0 0% 90%);
+  --sidebar-ring: hsl(0 0% 20%);
 }
 
 .dark {
-  --background: hsl(222 24% 9%);
-  --foreground: hsl(210 20% 96%);
-  --card: hsl(222 22% 12%);
-  --card-foreground: hsl(210 20% 96%);
-  --popover: hsl(222 22% 12%);
-  --popover-foreground: hsl(210 20% 96%);
+  --background: hsl(0 0% 7%);
+  --foreground: hsl(0 0% 95%);
+  --card: hsl(0 0% 10%);
+  --card-foreground: hsl(0 0% 95%);
+  --popover: hsl(0 0% 10%);
+  --popover-foreground: hsl(0 0% 95%);
 
-  --primary: hsl(199 89% 56%);
-  --primary-foreground: hsl(222 47% 11%);
+  --primary: hsl(0 0% 95%);
+  --primary-foreground: hsl(0 0% 9%);
 
-  --secondary: hsl(217 19% 18%);
-  --secondary-foreground: hsl(210 20% 92%);
-  --muted: hsl(217 19% 18%);
-  --muted-foreground: hsl(215 16% 62%);
-  --accent: hsl(217 30% 20%);
-  --accent-foreground: hsl(199 89% 80%);
+  --secondary: hsl(0 0% 16%);
+  --secondary-foreground: hsl(0 0% 95%);
+  --muted: hsl(0 0% 16%);
+  --muted-foreground: hsl(0 0% 60%);
+  --accent: hsl(0 0% 18%);
+  --accent-foreground: hsl(0 0% 95%);
 
-  --destructive: hsl(0 63% 54%);
-  --destructive-foreground: hsl(0 0% 100%);
-  --success: hsl(142 60% 48%);
-  --success-foreground: hsl(0 0% 100%);
+  --destructive: hsl(0 63% 50%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --success: hsl(142 55% 45%);
+  --success-foreground: hsl(0 0% 9%);
   --warning: hsl(36 90% 55%);
-  --warning-foreground: hsl(222 47% 11%);
-  --info: hsl(199 89% 56%);
-  --info-foreground: hsl(222 47% 11%);
+  --warning-foreground: hsl(0 0% 9%);
+  --info: hsl(0 0% 95%);
+  --info-foreground: hsl(0 0% 9%);
 
-  --border: hsl(217 19% 22%);
-  --input: hsl(217 19% 24%);
-  --ring: hsl(199 89% 56%);
+  --border: hsl(0 0% 18%);
+  --input: hsl(0 0% 22%);
+  --ring: hsl(0 0% 70%);
 
-  --sidebar: hsl(222 24% 11%);
-  --sidebar-foreground: hsl(210 20% 92%);
-  --sidebar-primary: hsl(199 89% 56%);
-  --sidebar-primary-foreground: hsl(222 47% 11%);
-  --sidebar-accent: hsl(217 30% 18%);
-  --sidebar-accent-foreground: hsl(199 89% 80%);
-  --sidebar-border: hsl(217 19% 22%);
-  --sidebar-ring: hsl(199 89% 56%);
+  --sidebar: hsl(0 0% 9%);
+  --sidebar-foreground: hsl(0 0% 85%);
+  --sidebar-primary: hsl(0 0% 95%);
+  --sidebar-primary-foreground: hsl(0 0% 9%);
+  --sidebar-accent: hsl(0 0% 16%);
+  --sidebar-accent-foreground: hsl(0 0% 95%);
+  --sidebar-border: hsl(0 0% 18%);
+  --sidebar-ring: hsl(0 0% 70%);
 }
 
 /* 把 CSS 变量映射为 Tailwind 工具类 (bg-background / text-primary / border-border ...) */
