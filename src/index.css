@@ -151,26 +151,28 @@
     color: var(--foreground);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* 玻璃透出的柔和中性渐变底 (fixed, 不随滚动) */
-    background-color: var(--background);
+    /* 柔和粉彩四角晕染 (低饱和、空气感), 作为磨砂玻璃透出的底; fixed 不随滚动 */
+    background-color: hsl(0 0% 97%);
     background-image:
-      radial-gradient(60% 50% at 18% 0%, hsl(0 0% 100% / 0.7), transparent 60%),
-      radial-gradient(50% 60% at 100% 100%, hsl(0 0% 100% / 0.45), transparent 55%),
-      linear-gradient(160deg, hsl(0 0% 98%), hsl(0 0% 90%));
+      radial-gradient(ellipse 80% 60% at 0% 0%, hsl(350 80% 90% / 0.6), transparent 50%),
+      radial-gradient(ellipse 70% 60% at 100% 0%, hsl(265 75% 90% / 0.55), transparent 50%),
+      radial-gradient(ellipse 80% 70% at 100% 100%, hsl(210 85% 88% / 0.55), transparent 55%),
+      radial-gradient(ellipse 70% 60% at 0% 100%, hsl(165 65% 90% / 0.45), transparent 50%);
     background-attachment: fixed;
   }
   .dark body {
+    background-color: hsl(0 0% 6%);
     background-image:
-      radial-gradient(60% 50% at 18% 0%, hsl(0 0% 100% / 0.06), transparent 60%),
-      radial-gradient(55% 60% at 100% 100%, hsl(0 0% 100% / 0.04), transparent 55%),
-      linear-gradient(160deg, hsl(0 0% 9%), hsl(0 0% 4%));
+      radial-gradient(ellipse 80% 60% at 0% 0%, hsl(350 50% 30% / 0.3), transparent 55%),
+      radial-gradient(ellipse 70% 60% at 100% 0%, hsl(265 55% 32% / 0.32), transparent 55%),
+      radial-gradient(ellipse 80% 70% at 100% 100%, hsl(210 60% 30% / 0.3), transparent 55%);
   }
 }
 
 /* 毛玻璃表面: 半透明 + 背景模糊 + 细边, 卡片/侧栏/顶栏复用 */
 .glass {
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
 
 /* 细滚动条 (token 化) */
