@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { surveyApi, type GetSurveysParams } from '@/services/survey'
 import type { CreateSurveyRequest, UpdateSurveyRequest } from '@/types/survey'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 /**
  * 问卷查询 key

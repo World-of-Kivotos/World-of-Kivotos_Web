@@ -3,7 +3,7 @@ import { submissionApi } from '@/services/survey'
 import { whitelistApi } from '@/services/whitelist'
 import { whitelistKeys } from '@/hooks/useWhitelist'
 import type { GetSubmissionsParams, ReviewSubmissionRequest } from '@/types/submission'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 /**
  * 审核查询 key

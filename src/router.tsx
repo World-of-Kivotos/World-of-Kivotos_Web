@@ -6,7 +6,6 @@ import {
   redirect,
 } from '@tanstack/react-router'
 import { AppShell } from '@/components/layout/AppShell'
-import { Placeholder } from '@/components/Placeholder'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { WhitelistPage } from '@/pages/WhitelistPage'
@@ -14,6 +13,7 @@ import { MonitorPage } from '@/pages/MonitorPage'
 import { PlayersPage } from '@/pages/PlayersPage'
 import { LogsPage } from '@/pages/LogsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { SurveyPage } from '@/pages/SurveyPage'
 import { Toaster } from '@/components/ui/sonner'
 import { useAuthStore } from '@/stores/auth'
 
@@ -76,7 +76,7 @@ const playersRoute = createRoute({
 const surveyRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/survey',
-  component: () => <Placeholder title="问卷管理" description="问卷编辑、提交审核" />,
+  component: SurveyPage,
 })
 const logsRoute = createRoute({
   getParentRoute: () => appRoute,
