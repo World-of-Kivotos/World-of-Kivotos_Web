@@ -6,6 +6,7 @@ import type {
   ApiResponse,
   WhitelistStats,
   AddWhitelistRequest,
+  AddWhitelistResult,
   BatchOperationRequest,
   BatchOperationResponse,
   WhitelistSource,
@@ -68,9 +69,9 @@ export const whitelistApi = {
   /**
    * 添加白名单条目
    */
-  async addWhitelist(data: AddWhitelistRequest): Promise<WhitelistEntry> {
-    const response = await api.post<ApiResponse<WhitelistEntry>>('/v1/whitelist', data)
-    
+  async addWhitelist(data: AddWhitelistRequest): Promise<AddWhitelistResult> {
+    const response = await api.post<ApiResponse<AddWhitelistResult>>('/v1/whitelist', data)
+
     if (response.data.success && response.data.data) {
       return response.data.data
     }

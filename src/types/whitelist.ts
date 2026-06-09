@@ -89,6 +89,19 @@ export interface AddWhitelistRequest {
 }
 
 /**
+ * 添加白名单响应 (mod 端返回的 data 实为此结构, 非完整 WhitelistEntry)。
+ * 玩家认证启用时附带绑定该用户名的一次性注册码, 由管理员转交玩家用于 /register。
+ */
+export interface AddWhitelistResult {
+  name: string
+  added: boolean
+  uuid_pending?: boolean
+  message?: string
+  registration_code?: string
+  code_expires_minutes?: number
+}
+
+/**
  * 批量操作请求
  */
 export interface BatchOperationRequest {

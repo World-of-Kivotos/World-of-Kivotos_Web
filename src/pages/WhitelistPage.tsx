@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Plus, Search, RefreshCw, Trash2 } from 'lucide-react'
+import { Plus, Search, RefreshCw, Trash2, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog'
 import { useWhitelist, useAddWhitelist, useDeleteWhitelist } from '@/hooks/useWhitelist'
-import type { WhitelistEntry } from '@/types/whitelist'
+import type { WhitelistEntry, AddWhitelistResult } from '@/types/whitelist'
 
 const PAGE_SIZE = 20
 
@@ -45,6 +45,7 @@ export function WhitelistPage() {
   const [search, setSearch] = useState('')
   const [addOpen, setAddOpen] = useState(false)
   const [newName, setNewName] = useState('')
+  const [issued, setIssued] = useState<AddWhitelistResult | null>(null)
 
   const list = useWhitelist({ page, size: PAGE_SIZE, search: search || undefined })
   const add = useAddWhitelist()
@@ -69,11 +70,22 @@ export function WhitelistPage() {
     add.mutate(
       { name, source: 'ADMIN' },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
           setAddOpen(false)
           setNewName('')
+          // 后端在玩家认证启用时回传一次性注册码, 弹窗展示给管理员转交玩家
+          if (data?.registration_code) {
+            setIssued(data)
+          }
         },
       }
+    )
+  }
+
+  const copyCode = (code: string) => {
+    navigator.clipboard?.writeText(code).then(
+      () => toast.success('注册码已复制'),
+      () => toast.error('复制失败, 请手动选择')
     )
   }
 
@@ -212,6 +224,39 @@ export function WhitelistPage() {
               <Button type="submit" disabled={add.isPending}>{add.isPending ? '添加中…' : '添加'}</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={issued !== null} onOpenChange={(o) => { if (!o) setIssued(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>注册码已生成</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              已添加 <span className="font-medium text-foreground">{issued?.name}</span> 到白名单。请将下方注册码转交该玩家,
+              用于游戏内 <code className="rounded bg-muted px-1">/register &lt;密码&gt; &lt;确认&gt; &lt;注册码&gt;</code>。
+              <strong className="text-foreground">一次性, 仅限该用户名</strong>
+              {issued?.code_expires_minutes ? `, ${Math.round(issued.code_expires_minutes / 60)} 小时内有效` : ''}。
+            </p>
+            <div className="flex items-center gap-2">
+              <Input readOnly value={issued?.registration_code ?? ''} className="font-mono text-base tracking-widest" />
+              <Button
+                type="button" variant="outline" size="icon" aria-label="复制注册码"
+                onClick={() => issued?.registration_code && copyCode(issued.registration_code)}
+              >
+                <Copy />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              关闭后无法再次查看完整注册码 (后端仅存哈希)。如遗失, 可在游戏内用 /accesshub auth gencode &lt;玩家&gt; 重新生成。
+            </p>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button">完成</Button>
+            </DialogClose>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
