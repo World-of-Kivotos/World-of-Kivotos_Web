@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Box } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { resolveVanillaTexture } from '@/lib/mcAssets'
 
 interface ItemIconProps {
   /** 物品注册键, 形如 "minecraft:diamond_sword" 或模组命名空间 "create:cogwheel"。 */
@@ -15,43 +16,49 @@ interface ItemIconProps {
 const VANILLA_CDN = 'https://assets.mcasset.cloud/1.20.1/assets/minecraft/textures'
 
 /**
- * 解析 id 得到该轮要尝试的图标 URL。
- * 香草物品在 1.20.1 资源里贴图可能落在 item/ 或 block/ 两个目录 (方块物品在 block/),
- * 无法仅凭 id 判定, 故按 item -> block 顺序回退; 模组物品走 mod 端 item-icon 端点。
- */
-function resolveSource(id: string, stage: number): string | null {
-  const colon = id.indexOf(':')
-  const ns = colon >= 0 ? id.slice(0, colon) : 'minecraft'
-  const path = colon >= 0 ? id.slice(colon + 1) : id
-
-  if (ns === 'minecraft') {
-    if (stage === 0) return `${VANILLA_CDN}/item/${path}.png`
-    if (stage === 1) return `${VANILLA_CDN}/block/${path}.png`
-    return null
-  }
-
-  // 模组物品: 走 mod 端贴图端点 (该端点需 mod 侧实现; 不存在时 img 触发 onError 落占位)。
-  if (stage === 0) {
-    const base = import.meta.env.VITE_API_BASE_URL || '/api'
-    return `${base}/v1/item-icon?id=${encodeURIComponent(id)}`
-  }
-  return null
-}
-
-/**
- * MC 物品图标。香草走 mcasset.cloud CDN (item -> block 回退), 模组走 mod 端 item-icon 端点,
- * 全部失败回退通用占位 (lucide Box)。16x16 像素图放大用 image-rendering: pixelated 防糊。
+ * MC 物品图标。
+ * 香草回退链: 0=textures/item/<id>.png (generated 物品) -> 1=textures/block/<id>.png (贴图名=id 的方块)
+ *   -> 2=模型解析 (贴图名 != id 的方块/特殊物品, 经 item 模型 + parent 链取贴图) -> 3=占位。
+ * 模组: 0=mod 端 /v1/item-icon 端点 (服务端从 jar 抽) -> 1=占位。
+ * 全部失败回退 lucide Box。16x16 像素图放大用 image-rendering: pixelated 防糊。
  */
 export function ItemIcon({ id, count, size = 32, className }: ItemIconProps) {
-  // stage 递增表示当前 src 已 404, 进入下一个候选; 超出候选则 src=null 显占位。
-  const [stage, setStage] = useState(0)
+  const colon = id.indexOf(':')
+  const ns = colon >= 0 ? id.slice(0, colon) : 'minecraft'
+  const name = colon >= 0 ? id.slice(colon + 1) : id
+  const isVanilla = ns === 'minecraft'
 
-  // 切换物品 id 时重置回退链, 否则上一个物品的失败 stage 会污染新图标。
+  const [stage, setStage] = useState(0)
+  // stage 2 模型解析结果: undefined=解析中, null=失败, string=解析到的贴图 URL
+  const [resolved, setResolved] = useState<string | null | undefined>(undefined)
+
+  // 切换物品 id 时重置回退链与解析态
   useEffect(() => {
     setStage(0)
+    setResolved(undefined)
   }, [id])
 
-  const src = resolveSource(id, stage)
+  // 香草直猜 (item/block) 都失败后 (stage 2) 才做模型解析, 不拖慢能直出的 generated 物品
+  useEffect(() => {
+    if (!isVanilla || stage !== 2 || resolved !== undefined) return
+    let alive = true
+    resolveVanillaTexture(name).then((url) => {
+      if (alive) setResolved(url)
+    })
+    return () => {
+      alive = false
+    }
+  }, [isVanilla, stage, resolved, name])
+
+  let src: string | null = null
+  if (isVanilla) {
+    if (stage === 0) src = `${VANILLA_CDN}/item/${name}.png`
+    else if (stage === 1) src = `${VANILLA_CDN}/block/${name}.png`
+    else if (stage === 2) src = resolved ?? null // 解析中(undefined)或失败(null)均无 src -> 占位
+  } else if (stage === 0) {
+    const base = import.meta.env.VITE_API_BASE_URL || '/api'
+    src = `${base}/v1/item-icon?id=${encodeURIComponent(id)}`
+  }
 
   if (!src) {
     return (
