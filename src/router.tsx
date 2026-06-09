@@ -9,6 +9,7 @@ import { AppShell } from '@/components/layout/AppShell'
 import { Placeholder } from '@/components/Placeholder'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
+import { WhitelistPage } from '@/pages/WhitelistPage'
 import { Toaster } from '@/components/ui/sonner'
 import { useAuthStore } from '@/stores/auth'
 
@@ -56,7 +57,7 @@ const dashboardRoute = createRoute({
 const whitelistRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/whitelist',
-  component: () => <Placeholder title="白名单" description="玩家白名单增删查、批量、同步" />,
+  component: WhitelistPage,
 })
 const monitorRoute = createRoute({
   getParentRoute: () => appRoute,

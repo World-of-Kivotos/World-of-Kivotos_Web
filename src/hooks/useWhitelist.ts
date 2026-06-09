@@ -4,7 +4,7 @@ import type {
   AddWhitelistRequest,
   BatchOperationRequest,
 } from '@/types/whitelist'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 /**
  * 白名单查询 key
