@@ -38,7 +38,7 @@ const NAV_ITEMS: NavItem[] = [
 
 export function AppSidebar() {
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
+    <aside className="glass flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
       <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-5">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-sidebar-primary font-bold text-sidebar-primary-foreground">
           K

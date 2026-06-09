@@ -5,17 +5,17 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
-  设计 token 体系 (shadcn-on-Tailwind4 规范) —— 纯中性灰阶, 不用品牌色。
-  - 浅色: 白 -> 灰; 深色: 黑 -> 白。primary 跟随前景 (浅色近黑 / 深色近白), 高对比好掌控。
-  - 状态色 success/warning/destructive 为功能色保留 (绿/琥珀/红); info 中性化, 全局无蓝。
-  - 组件统一用 token, 不再写任意色值。
+  设计 token 体系 (shadcn-on-Tailwind4) —— 中性灰阶 + 毛玻璃 (glassmorphism)。
+  - 浅色白->灰, 深色黑->白; primary 跟随前景; 无蓝, 状态色 success/warning/destructive 保留。
+  - 表面 (card/sidebar) 半透明, 配 backdrop-blur 形成磨砂玻璃; body 铺柔和中性渐变作为玻璃透出的底。
+  - 弹层 (popover) 保持不透明, 保证菜单可读。
 */
 :root {
-  --radius: 0.625rem;
+  --radius: 0.75rem;
 
-  --background: hsl(0 0% 100%);
+  --background: hsl(0 0% 96%);
   --foreground: hsl(0 0% 9%);
-  --card: hsl(0 0% 100%);
+  --card: hsl(0 0% 100% / 0.72);
   --card-foreground: hsl(0 0% 9%);
   --popover: hsl(0 0% 100%);
   --popover-foreground: hsl(0 0% 9%);
@@ -23,53 +23,52 @@
   --primary: hsl(0 0% 9%);
   --primary-foreground: hsl(0 0% 98%);
 
-  --secondary: hsl(0 0% 96%);
+  --secondary: hsl(0 0% 100% / 0.6);
   --secondary-foreground: hsl(0 0% 9%);
-  --muted: hsl(0 0% 96%);
-  --muted-foreground: hsl(0 0% 45%);
-  --accent: hsl(0 0% 94%);
+  --muted: hsl(0 0% 92%);
+  --muted-foreground: hsl(0 0% 40%);
+  --accent: hsl(0 0% 100% / 0.7);
   --accent-foreground: hsl(0 0% 9%);
 
   --destructive: hsl(0 72% 51%);
   --destructive-foreground: hsl(0 0% 98%);
   --success: hsl(142 60% 38%);
   --success-foreground: hsl(0 0% 98%);
-  --warning: hsl(36 92% 48%);
+  --warning: hsl(36 92% 46%);
   --warning-foreground: hsl(0 0% 9%);
   --info: hsl(0 0% 9%);
   --info-foreground: hsl(0 0% 98%);
 
-  --border: hsl(0 0% 90%);
-  --input: hsl(0 0% 90%);
+  --border: hsl(0 0% 100% / 0.6);
+  --input: hsl(0 0% 0% / 0.12);
   --ring: hsl(0 0% 20%);
 
-  /* 侧栏专用 token */
-  --sidebar: hsl(0 0% 98%);
+  --sidebar: hsl(0 0% 100% / 0.55);
   --sidebar-foreground: hsl(0 0% 20%);
   --sidebar-primary: hsl(0 0% 9%);
   --sidebar-primary-foreground: hsl(0 0% 98%);
-  --sidebar-accent: hsl(0 0% 93%);
+  --sidebar-accent: hsl(0 0% 100% / 0.7);
   --sidebar-accent-foreground: hsl(0 0% 9%);
-  --sidebar-border: hsl(0 0% 90%);
+  --sidebar-border: hsl(0 0% 100% / 0.5);
   --sidebar-ring: hsl(0 0% 20%);
 }
 
 .dark {
-  --background: hsl(0 0% 7%);
+  --background: hsl(0 0% 6%);
   --foreground: hsl(0 0% 95%);
-  --card: hsl(0 0% 10%);
+  --card: hsl(0 0% 100% / 0.06);
   --card-foreground: hsl(0 0% 95%);
-  --popover: hsl(0 0% 10%);
+  --popover: hsl(0 0% 11%);
   --popover-foreground: hsl(0 0% 95%);
 
   --primary: hsl(0 0% 95%);
   --primary-foreground: hsl(0 0% 9%);
 
-  --secondary: hsl(0 0% 16%);
+  --secondary: hsl(0 0% 100% / 0.08);
   --secondary-foreground: hsl(0 0% 95%);
   --muted: hsl(0 0% 16%);
   --muted-foreground: hsl(0 0% 60%);
-  --accent: hsl(0 0% 18%);
+  --accent: hsl(0 0% 100% / 0.1);
   --accent-foreground: hsl(0 0% 95%);
 
   --destructive: hsl(0 63% 50%);
@@ -81,21 +80,20 @@
   --info: hsl(0 0% 95%);
   --info-foreground: hsl(0 0% 9%);
 
-  --border: hsl(0 0% 18%);
-  --input: hsl(0 0% 22%);
+  --border: hsl(0 0% 100% / 0.1);
+  --input: hsl(0 0% 100% / 0.14);
   --ring: hsl(0 0% 70%);
 
-  --sidebar: hsl(0 0% 9%);
+  --sidebar: hsl(0 0% 100% / 0.04);
   --sidebar-foreground: hsl(0 0% 85%);
   --sidebar-primary: hsl(0 0% 95%);
   --sidebar-primary-foreground: hsl(0 0% 9%);
-  --sidebar-accent: hsl(0 0% 16%);
+  --sidebar-accent: hsl(0 0% 100% / 0.08);
   --sidebar-accent-foreground: hsl(0 0% 95%);
-  --sidebar-border: hsl(0 0% 18%);
+  --sidebar-border: hsl(0 0% 100% / 0.08);
   --sidebar-ring: hsl(0 0% 70%);
 }
 
-/* 把 CSS 变量映射为 Tailwind 工具类 (bg-background / text-primary / border-border ...) */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -137,7 +135,6 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* 等宽字体: 数据大屏数字用 font-mono, 对齐易扫读 (监控盘风格核心) */
   --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
 }
 
@@ -145,24 +142,47 @@
   * {
     border-color: var(--border);
   }
+  html,
+  body,
+  #root {
+    min-height: 100vh;
+  }
   body {
-    background-color: var(--background);
     color: var(--foreground);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* 玻璃透出的柔和中性渐变底 (fixed, 不随滚动) */
+    background-color: var(--background);
+    background-image:
+      radial-gradient(60% 50% at 18% 0%, hsl(0 0% 100% / 0.7), transparent 60%),
+      radial-gradient(50% 60% at 100% 100%, hsl(0 0% 100% / 0.45), transparent 55%),
+      linear-gradient(160deg, hsl(0 0% 98%), hsl(0 0% 90%));
+    background-attachment: fixed;
   }
+  .dark body {
+    background-image:
+      radial-gradient(60% 50% at 18% 0%, hsl(0 0% 100% / 0.06), transparent 60%),
+      radial-gradient(55% 60% at 100% 100%, hsl(0 0% 100% / 0.04), transparent 55%),
+      linear-gradient(160deg, hsl(0 0% 9%), hsl(0 0% 4%));
+  }
+}
+
+/* 毛玻璃表面: 半透明 + 背景模糊 + 细边, 卡片/侧栏/顶栏复用 */
+.glass {
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
 }
 
 /* 细滚动条 (token 化) */
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  scrollbar-color: hsl(0 0% 50% / 0.4) transparent;
 }
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: var(--border);
+  background-color: hsl(0 0% 50% / 0.4);
   border-radius: 3px;
 }

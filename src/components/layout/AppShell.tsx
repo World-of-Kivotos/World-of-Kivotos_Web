@@ -17,10 +17,10 @@ export function AppShell() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
+    <div className="flex min-h-screen text-foreground">
       <AppSidebar />
       <div className="flex flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-end gap-2 border-b bg-background px-6">
+        <header className="glass sticky top-0 z-10 flex h-14 shrink-0 items-center justify-end gap-2 border-b border-sidebar-border bg-card px-6">
           <Button variant="ghost" size="icon" onClick={toggle} aria-label="切换主题">
             {theme === 'dark' ? <Sun /> : <Moon />}
           </Button>
