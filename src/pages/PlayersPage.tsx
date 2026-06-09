@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search, Heart, MapPin, Gamepad2, Wifi } from 'lucide-react'
+import { Search, Heart, MapPin, Gamepad2, Wifi, Clock } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,11 @@ import { serverApi } from '@/services/server'
 
 function dim(d: string) {
   return d.replace('minecraft:', '')
+}
+
+function fmtTime(s: string) {
+  const d = new Date(s)
+  return Number.isNaN(d.getTime()) ? s : d.toLocaleString('zh-CN', { hour12: false })
 }
 
 export function PlayersPage() {
@@ -61,21 +66,26 @@ export function PlayersPage() {
                 {p.gameMode && <Badge variant="outline" className="font-normal">{p.gameMode}</Badge>}
               </div>
               <p className="mt-1 font-mono text-xs text-muted-foreground">{p.uuid}</p>
-              {p.online ? (
-                <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                  {p.location && (
+              {p.location ? (
+                <>
+                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                     <div className="flex items-center gap-2"><MapPin className="size-4 text-muted-foreground" /><span className="font-mono tabular-nums">{dim(p.location.dimension)} {Math.round(p.location.x)},{Math.round(p.location.y)},{Math.round(p.location.z)}</span></div>
+                    {p.vitals?.health != null && (
+                      <div className="flex items-center gap-2"><Heart className="size-4 text-muted-foreground" /><span className="font-mono tabular-nums">{p.vitals.health.toFixed(0)}{p.vitals.maxHealth != null ? ` / ${p.vitals.maxHealth.toFixed(0)}` : ''}</span></div>
+                    )}
+                    {p.vitals?.level != null && (
+                      <div className="flex items-center gap-2"><Gamepad2 className="size-4 text-muted-foreground" /><span className="font-mono tabular-nums">Lv.{p.vitals.level}</span></div>
+                    )}
+                    {p.online && p.ping != null ? (
+                      <div className="flex items-center gap-2"><Wifi className="size-4 text-muted-foreground" /><span className="font-mono tabular-nums">{p.ping}ms</span></div>
+                    ) : p.lastSaved ? (
+                      <div className="flex items-center gap-2"><Clock className="size-4 text-muted-foreground" /><span className="font-mono text-xs tabular-nums">{fmtTime(p.lastSaved)}</span></div>
+                    ) : null}
+                  </div>
+                  {!p.online && (
+                    <p className="mt-3 text-xs text-muted-foreground">离线存档快照（玩家下线那刻的数据，非实时）</p>
                   )}
-                  {p.vitals?.health != null && (
-                    <div className="flex items-center gap-2"><Heart className="size-4 text-muted-foreground" /><span className="font-mono tabular-nums">{p.vitals.health.toFixed(0)} / {p.vitals.maxHealth?.toFixed(0) ?? 20}</span></div>
-                  )}
-                  {p.vitals?.level != null && (
-                    <div className="flex items-center gap-2"><Gamepad2 className="size-4 text-muted-foreground" /><span className="font-mono tabular-nums">Lv.{p.vitals.level}</span></div>
-                  )}
-                  {p.ping != null && (
-                    <div className="flex items-center gap-2"><Wifi className="size-4 text-muted-foreground" /><span className="font-mono tabular-nums">{p.ping}ms</span></div>
-                  )}
-                </div>
+                </>
               ) : (
                 <p className="mt-3 text-sm text-muted-foreground">{p.note || '离线玩家仅返回基本信息。'}</p>
               )}

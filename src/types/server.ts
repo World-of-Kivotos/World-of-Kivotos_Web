@@ -106,6 +106,8 @@ export interface PlayerDetail {
   playerName: string
   uuid: string
   online: boolean
+  source?: string        // 'offline-nbt' 表示来自离线存档快照
+  lastSaved?: string     // 离线存档的最后保存时间 (ISO)
   note?: string
   gameMode?: string
   ping?: number
