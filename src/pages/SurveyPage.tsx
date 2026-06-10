@@ -54,7 +54,7 @@ function ReviewDialog({ id, onClose }: { id: number; onClose: () => void }) {
           // 审核通过后由面板侧发起加白, source 固定 ADMIN (mod Source 枚举不接受 API)。
           // useAddWhitelist 自带成功/失败 toast, 拒绝时不加白。
           if (status === 'approved') {
-            addWhitelist.mutate({ name: playerName, source: 'ADMIN' })
+            addWhitelist.mutate({ name: playerName, qq: d.qq, source: 'ADMIN' })
           }
           onClose()
         },
@@ -77,6 +77,12 @@ function ReviewDialog({ id, onClose }: { id: number; onClose: () => void }) {
           <p className="text-sm text-muted-foreground">加载失败</p>
         ) : (
           <div className="space-y-4">
+            {d.qq && (
+              <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+                <span className="text-muted-foreground">QQ: </span>
+                <span className="font-medium">{d.qq}</span>
+              </div>
+            )}
             <div className="max-h-72 space-y-3 overflow-y-auto scrollbar-thin pr-1">
               {d.answers.map((a) => (
                 <div key={a.id} className="rounded-lg border p-3">

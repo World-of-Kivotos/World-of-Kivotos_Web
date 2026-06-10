@@ -652,6 +652,21 @@ function SortableQuestionCard({
                   保留题目
                 </Label>
               </div>
+
+              {/* 语义标记: 把本题标记为玩家名/QQ, 提交时后端抽取到结构化字段 (建议用文本题) */}
+              <div className="flex items-center gap-2">
+                <Label htmlFor={`role-${question._id}`} className="cursor-pointer">绑定字段</Label>
+                <select
+                  id={`role-${question._id}`}
+                  value={question.role ?? ''}
+                  onChange={(e) => onUpdate({ ...question, role: (e.target.value || undefined) as LocalQuestion['role'] })}
+                  className="h-8 rounded-md border bg-background px-2 text-sm"
+                >
+                  <option value="">无</option>
+                  <option value="player_name">玩家名</option>
+                  <option value="qq">QQ</option>
+                </select>
+              </div>
             </div>
 
             {/* 条件显示配置 */}
@@ -725,6 +740,7 @@ export function SurveyEditModal({ open, onOpenChange, surveyId }: SurveyEditModa
             order: q.order,
             validation: q.validation ?? undefined,
             condition: q.condition ?? undefined,
+            role: q.role ?? undefined,
           }))
       )
       setExpandedIds(new Set())
@@ -844,6 +860,7 @@ export function SurveyEditModal({ open, onOpenChange, surveyId }: SurveyEditModa
         order: index,
         validation: q.validation,
         condition: q.condition,
+        role: q.role,
       })),
     }
   }, [title, description, isRandom, randomCount, questions])

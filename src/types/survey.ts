@@ -46,6 +46,9 @@ export interface QuestionCondition {
  */
 export type QuestionType = 'single' | 'multiple' | 'boolean' | 'text' | 'image'
 
+// 题目语义标记: 把某道题标记为系统字段, 后端据此抽取结构化字段 (玩家名/QQ)
+export type QuestionRole = 'player_name' | 'qq'
+
 /**
  * 问题接口
  */
@@ -60,6 +63,7 @@ export interface Question {
   order: number
   validation: QuestionValidation | null
   condition: QuestionCondition | null  // 条件显示规则
+  role: QuestionRole | null            // 语义标记 (玩家名/QQ)
 }
 
 /**
@@ -104,6 +108,7 @@ export interface CreateQuestionRequest {
   order?: number
   validation?: QuestionValidation
   condition?: QuestionCondition  // 条件显示规则
+  role?: QuestionRole            // 语义标记 (玩家名/QQ)
 }
 
 /**
@@ -118,6 +123,7 @@ export interface UpdateQuestionRequest {
   order?: number
   validation?: QuestionValidation
   condition?: QuestionCondition  // 条件显示规则
+  role?: QuestionRole            // 语义标记 (玩家名/QQ)
 }
 
 /**

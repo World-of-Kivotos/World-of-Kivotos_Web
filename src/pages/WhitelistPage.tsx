@@ -125,6 +125,7 @@ export function WhitelistPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>玩家名</TableHead>
+                  <TableHead>QQ</TableHead>
                   <TableHead>UUID</TableHead>
                   <TableHead>来源</TableHead>
                   <TableHead>添加者</TableHead>
@@ -135,20 +136,21 @@ export function WhitelistPage() {
               <TableBody>
                 {list.isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">加载中…</TableCell>
+                    <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">加载中…</TableCell>
                   </TableRow>
                 ) : list.isError ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">加载失败 (服务器未连接?)</TableCell>
+                    <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">加载失败 (服务器未连接?)</TableCell>
                   </TableRow>
                 ) : !data || data.items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">暂无白名单</TableCell>
+                    <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">暂无白名单</TableCell>
                   </TableRow>
                 ) : (
                   data.items.map((entry: WhitelistEntry) => (
                     <TableRow key={entry.id}>
                       <TableCell className="font-medium">{entry.name}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{entry.qq || '—'}</TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">
                         {entry.uuid ? entry.uuid : <Badge variant="warning">待补全</Badge>}
                       </TableCell>

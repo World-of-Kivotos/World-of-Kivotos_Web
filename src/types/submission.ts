@@ -20,6 +20,7 @@ export interface SubmissionAnswer {
   question_title: string
   question_type: 'single' | 'multiple' | 'boolean' | 'text' | 'image'
   question_options?: QuestionOption[] | null  // 选项列表，用于渲染选择题
+  question_role?: 'player_name' | 'qq' | null  // 语义标记, 供识别玩家名/QQ 行
   content: string | string[] | boolean | null
 }
 
@@ -31,6 +32,7 @@ export interface SubmissionListItem {
   survey_id: number
   survey_title: string
   player_name: string
+  qq?: string | null
   status: SubmissionStatus
   created_at: string
   reviewed_at: string | null
@@ -44,6 +46,7 @@ export interface SubmissionDetail {
   survey_id: number
   survey_title: string
   player_name: string
+  qq: string | null
   ip_address: string
   fill_duration: number | null
   first_viewed_at: string | null

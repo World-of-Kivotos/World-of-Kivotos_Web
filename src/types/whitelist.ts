@@ -13,6 +13,7 @@ export interface WhitelistEntry {
   source: WhitelistSource
   isActive: boolean          // 状态（驼峰）
   uuidPending?: boolean      // UUID待补充（驼峰）
+  qq?: string | null         // 联系QQ (问卷审核加白带入, 可空)
 }
 
 /**
@@ -86,6 +87,7 @@ export interface AddWhitelistRequest {
   added_by_name?: string
   added_by_uuid?: string
   added_at?: string
+  qq?: string | null  // 联系QQ (问卷审核加白带入)
 }
 
 /**
