@@ -152,7 +152,7 @@ export function WhitelistPage() {
                       <TableCell className="font-medium">{entry.name}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{entry.qq || '—'}</TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">
-                        {entry.uuid ? entry.uuid : <Badge variant="warning">待补全</Badge>}
+                        {entry.uuid || '—'}
                       </TableCell>
                       <TableCell><Badge variant="outline" className="font-normal">{channelLabel(entry)}</Badge></TableCell>
                       <TableCell className="text-sm text-muted-foreground">{entry.addedByName || '—'}</TableCell>
