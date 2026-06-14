@@ -14,7 +14,7 @@ import { useSubmissions, useSubmissionStats, useSubmissionDetail, useReviewSubmi
 import { useSurveys, useToggleSurveyActive } from '@/hooks/useSurvey'
 import { useAddWhitelist } from '@/hooks/useWhitelist'
 import { useAuthStore } from '@/stores/auth'
-import type { SubmissionStatus, SubmissionAnswer } from '@/types/submission'
+import type { SubmissionStatus, SubmissionAnswer, QuestionOption } from '@/types/submission'
 
 function statusBadge(s: SubmissionStatus) {
   if (s === 'approved') return <Badge variant="success">已通过</Badge>
@@ -28,12 +28,29 @@ function fmt(s: string | null) {
   return Number.isNaN(d.getTime()) ? s : d.toLocaleString('zh-CN', { hour12: false })
 }
 
+// 选择题存的是选项 value, 映射回 label 让审核可读; 无匹配则原样显示
+function optionLabel(value: string, options?: QuestionOption[] | null): string {
+  return options?.find((o) => o.value === value)?.label ?? value
+}
+
+// 答案 content 实际形态: single/boolean -> {value}, multiple -> {values}, text -> {text}, image -> {images}。
+// 旧逻辑对对象直接 String() 得到 "[object Object]"; 这里按形态解包, 并兼容历史扁平标量。
 function renderAnswer(a: SubmissionAnswer): string {
   const c = a.content
   if (c == null) return '—'
   if (typeof c === 'boolean') return c ? '是' : '否'
-  if (Array.isArray(c)) return c.join('、')
-  return String(c)
+  if (typeof c === 'string') return c.trim() || '—'
+  if (Array.isArray(c)) {
+    return c.length ? c.map((v) => optionLabel(String(v), a.question_options)).join('、') : '—'
+  }
+  if (typeof c.value === 'boolean') return c.value ? '是' : '否'
+  if (Array.isArray(c.values)) {
+    return c.values.length ? c.values.map((v) => optionLabel(String(v), a.question_options)).join('、') : '—'
+  }
+  if (c.value != null && c.value !== '') return optionLabel(String(c.value), a.question_options)
+  if (typeof c.text === 'string') return c.text.trim() || '—'
+  if (Array.isArray(c.images)) return c.images.length ? `${c.images.length} 张图片` : '—'
+  return '—'
 }
 
 function ReviewDialog({ id, onClose }: { id: number; onClose: () => void }) {

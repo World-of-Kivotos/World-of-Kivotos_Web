@@ -12,6 +12,21 @@ export interface QuestionOption {
 }
 
 /**
+ * 答案内容: 后端按题型存为对象 — single/boolean: {value}, multiple: {values},
+ * text: {text}, image: {images}。保留扁平标量以兼容历史数据。
+ */
+export type AnswerContent =
+  | {
+      value?: string | boolean
+      values?: string[]
+      text?: string
+      images?: string[]
+    }
+  | string
+  | string[]
+  | boolean
+
+/**
  * 提交答案
  */
 export interface SubmissionAnswer {
@@ -21,7 +36,7 @@ export interface SubmissionAnswer {
   question_type: 'single' | 'multiple' | 'boolean' | 'text' | 'image'
   question_options?: QuestionOption[] | null  // 选项列表，用于渲染选择题
   question_role?: 'player_name' | 'qq' | null  // 语义标记, 供识别玩家名/QQ 行
-  content: string | string[] | boolean | null
+  content: AnswerContent | null
 }
 
 /**
