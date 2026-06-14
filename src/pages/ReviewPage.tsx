@@ -191,7 +191,12 @@ export function ReviewPage() {
                 ) : (
                   subs.data.items.map((s) => (
                     <TableRow key={s.id}>
-                      <TableCell className="font-medium">{s.player_name}</TableCell>
+                      <TableCell className="font-medium">
+                        {s.player_name}
+                        {s.in_review_group === false && (
+                          <Badge variant="warning" className="ml-2 font-normal">未在审核群</Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{s.survey_title}</TableCell>
                       <TableCell>{statusBadge(s.status)}</TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground tabular-nums">{fmt(s.created_at)}</TableCell>

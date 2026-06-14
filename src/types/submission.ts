@@ -49,6 +49,7 @@ export interface SubmissionListItem {
   player_name: string
   qq?: string | null
   status: SubmissionStatus
+  in_review_group?: boolean | null  // false=提交时不在审核群 (机器人无法 @ 通知, 面板标记)
   created_at: string
   reviewed_at: string | null
 }
