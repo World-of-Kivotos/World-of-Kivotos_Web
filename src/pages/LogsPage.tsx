@@ -7,8 +7,22 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { activityApi } from '@/services/activity'
 import type { OperationType } from '@/types/activity'
+import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 20
+
+// 操作类型: 中文名 + 柔和配色 (浅底+同色字, 配清爽主题, 避免纯色突兀)。键含 mod 端 GENCODE。
+const TYPE_META: Record<string, { label: string; cls: string }> = {
+  ADD:          { label: '添加',     cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20' },
+  BATCH_ADD:    { label: '批量添加', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20' },
+  REMOVE:       { label: '移除',     cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20' },
+  BATCH_REMOVE: { label: '批量移除', cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20' },
+  GENCODE:      { label: '签发注册码', cls: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/20' },
+  SYNC:         { label: '同步',     cls: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/10 dark:text-slate-300 dark:border-slate-500/20' },
+  QUERY:        { label: '查询',     cls: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/10 dark:text-slate-300 dark:border-slate-500/20' },
+  UNAUTHORIZED_ACCESS: { label: '未授权访问', cls: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/20' },
+}
+
 const TYPES: { value: OperationType | 'ALL'; label: string }[] = [
   { value: 'ALL', label: '全部类型' },
   { value: 'ADD', label: '添加' },
@@ -17,14 +31,13 @@ const TYPES: { value: OperationType | 'ALL'; label: string }[] = [
   { value: 'BATCH_REMOVE', label: '批量移除' },
   { value: 'SYNC', label: '同步' },
   { value: 'QUERY', label: '查询' },
+  { value: 'GENCODE', label: '签发注册码' },
   { value: 'UNAUTHORIZED_ACCESS', label: '未授权访问' },
 ]
 
 function typeBadge(t: OperationType) {
-  if (t === 'UNAUTHORIZED_ACCESS') return <Badge variant="destructive">未授权访问</Badge>
-  if (t === 'ADD' || t === 'BATCH_ADD') return <Badge variant="success">{t}</Badge>
-  if (t === 'REMOVE' || t === 'BATCH_REMOVE') return <Badge variant="warning">{t}</Badge>
-  return <Badge variant="outline" className="font-normal">{t}</Badge>
+  const meta = TYPE_META[t] ?? { label: t, cls: 'bg-muted text-muted-foreground border-border' }
+  return <Badge variant="outline" className={cn('font-normal', meta.cls)}>{meta.label}</Badge>
 }
 
 function fmt(s: string) {

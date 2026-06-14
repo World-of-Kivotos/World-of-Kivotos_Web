@@ -23,7 +23,7 @@ export interface SurveyActivityLog {
 /**
  * 白名单系统操作类型
  */
-export type OperationType = 'ADD' | 'REMOVE' | 'QUERY' | 'BATCH_ADD' | 'BATCH_REMOVE' | 'SYNC' | 'UNAUTHORIZED_ACCESS'
+export type OperationType = 'ADD' | 'REMOVE' | 'QUERY' | 'BATCH_ADD' | 'BATCH_REMOVE' | 'SYNC' | 'GENCODE' | 'UNAUTHORIZED_ACCESS'
 
 /**
  * 白名单系统操作日志
