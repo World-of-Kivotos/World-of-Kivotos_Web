@@ -63,6 +63,7 @@ export interface SubmissionDetail {
   player_name: string
   qq: string | null
   ip_address: string
+  ip_location: string | null   // 离线 ip2region 解析的归属地, 无数据为 null
   fill_duration: number | null
   first_viewed_at: string | null
   status: SubmissionStatus

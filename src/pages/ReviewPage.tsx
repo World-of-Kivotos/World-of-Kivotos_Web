@@ -102,7 +102,7 @@ function ReviewDialog({ id, onClose }: { id: number; onClose: () => void }) {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border bg-muted/40 p-3 text-sm">
               <div><span className="text-muted-foreground">QQ: </span><span className="font-medium">{d.qq || '—'}</span></div>
-              <div><span className="text-muted-foreground">IP: </span><span className="font-mono text-xs">{d.ip_address || '—'}</span></div>
+              <div><span className="text-muted-foreground">IP: </span><span className="font-mono text-xs">{d.ip_address || '—'}</span>{d.ip_location && <span className="ml-1 text-muted-foreground">· {d.ip_location}</span>}</div>
               <div><span className="text-muted-foreground">提交时间: </span><span className="font-medium">{fmt(d.created_at)}</span></div>
               <div><span className="text-muted-foreground">填写耗时: </span><span className="font-medium">{fmtDuration(d.fill_duration)}</span></div>
               <div><span className="text-muted-foreground">首次查看: </span><span className="font-medium">{fmt(d.first_viewed_at)}</span></div>
