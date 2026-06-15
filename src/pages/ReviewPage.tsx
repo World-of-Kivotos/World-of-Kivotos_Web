@@ -193,7 +193,7 @@ export function ReviewPage() {
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">
                         {s.player_name}
-                        {s.in_review_group === false && (
+                        {s.status === 'pending' && s.in_review_group === false && (
                           <Badge variant="warning" className="ml-2 font-normal">未在审核群</Badge>
                         )}
                       </TableCell>
