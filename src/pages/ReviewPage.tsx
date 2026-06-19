@@ -11,6 +11,7 @@ import { useSubmissions, useSubmissionStats, useSubmissionDetail, useReviewSubmi
 import { useAddWhitelist } from '@/hooks/useWhitelist'
 import { useAuthStore } from '@/stores/auth'
 import type { SubmissionStatus, SubmissionAnswer, QuestionOption } from '@/types/submission'
+import { surveyImageUrl } from '@/services/survey'
 
 function statusBadge(s: SubmissionStatus) {
   if (s === 'approved') return <Badge variant="success">已通过</Badge>
@@ -57,6 +58,16 @@ function renderAnswer(a: SubmissionAnswer): string {
   if (typeof c.text === 'string') return c.text.trim() || '—'
   if (Array.isArray(c.images)) return c.images.length ? `${c.images.length} 张图片` : '—'
   return '—'
+}
+
+// 图片题单独渲染缩略图 (renderAnswer 只产文本)。仅当 content.images 含非空路径时返回列表, 否则 null。
+function answerImages(a: SubmissionAnswer): string[] | null {
+  const c = a.content
+  if (c && typeof c === 'object' && !Array.isArray(c) && Array.isArray(c.images)) {
+    const imgs = c.images.filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+    return imgs.length ? imgs : null
+  }
+  return null
 }
 
 function ReviewDialog({ id, onClose }: { id: number; onClose: () => void }) {
@@ -111,12 +122,30 @@ function ReviewDialog({ id, onClose }: { id: number; onClose: () => void }) {
               )}
             </div>
             <div className="max-h-[55vh] space-y-3 overflow-y-auto scrollbar-thin pr-1">
-              {d.answers.map((a) => (
-                <div key={a.id} className="rounded-lg border p-3">
-                  <p className="text-xs font-medium text-muted-foreground">{a.question_title}</p>
-                  <p className="mt-1 text-sm">{renderAnswer(a)}</p>
-                </div>
-              ))}
+              {d.answers.map((a) => {
+                const imgs = answerImages(a)
+                return (
+                  <div key={a.id} className="rounded-lg border p-3">
+                    <p className="text-xs font-medium text-muted-foreground">{a.question_title}</p>
+                    {imgs ? (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {imgs.map((src, i) => (
+                          <a key={i} href={surveyImageUrl(src)} target="_blank" rel="noreferrer" className="block">
+                            <img
+                              src={surveyImageUrl(src)}
+                              alt={`${a.question_title} 图片 ${i + 1}`}
+                              loading="lazy"
+                              className="h-28 w-28 rounded-md border object-cover transition-opacity hover:opacity-80"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-sm">{renderAnswer(a)}</p>
+                    )}
+                  </div>
+                )
+              })}
             </div>
             {d.status === 'pending' && (
               <div className="space-y-3 border-t pt-3">

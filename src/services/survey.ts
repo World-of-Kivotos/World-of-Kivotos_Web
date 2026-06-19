@@ -22,6 +22,16 @@ import type {
 // 本地起后端开发时用 VITE_SURVEY_API_URL=http://localhost:8000/api/v1 覆盖
 const SURVEY_API_BASE = import.meta.env.VITE_SURVEY_API_URL || 'https://questionnaire.mcwok.cn/api/v1'
 
+// 问卷上传的图片以相对路径 (/uploads/xxx) 入库, 由问卷源站托管。面板在 panel.mcwok.cn,
+// 与问卷不同域, 相对路径会指向面板自身而 404 -> 据 SURVEY_API_BASE 推出问卷源站补成绝对地址。
+const SURVEY_ORIGIN = SURVEY_API_BASE.replace(/\/api\/v1\/?$/, '')
+
+export function surveyImageUrl(path: string): string {
+  if (!path) return ''
+  if (/^https?:\/\//i.test(path)) return path
+  return `${SURVEY_ORIGIN}${path.startsWith('/') ? '' : '/'}${path}`
+}
+
 /**
  * 获取问卷列表查询参数
  */
