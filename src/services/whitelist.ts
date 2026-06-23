@@ -90,13 +90,34 @@ export const whitelistApi = {
   },
 
   /**
-   * 批量操作白名单
+   * 启用/禁用某条白名单 (按玩家名)。禁用后该玩家进服会被拒并提示"管理员已关闭访问权限"。
+   */
+  async setActive(name: string, isActive: boolean): Promise<void> {
+    const response = await api.put<ApiResponse<{ name: string; is_active: boolean }>>(
+      `/v1/whitelist/by-name/${encodeURIComponent(name)}/status`,
+      { is_active: isActive }
+    )
+    if (!response.data.success) {
+      throw new Error(response.data.error?.message || '设置启用状态失败')
+    }
+  },
+
+  /**
+   * 批量操作白名单 (add/remove/enable/disable)。
+   * 归一化后端字段: mod 端返回 failure_count, 前端契约用 failed_count; 同时兜底 details。
    */
   async batchOperation(data: BatchOperationRequest): Promise<BatchOperationResponse> {
-    const response = await api.post<ApiResponse<BatchOperationResponse>>('/v1/whitelist/batch', data)
-    
+    const response = await api.post<ApiResponse<Record<string, unknown>>>('/v1/whitelist/batch', data)
+
     if (response.data.success && response.data.data) {
-      return response.data.data
+      const d = response.data.data
+      return {
+        operation: String(d.operation ?? data.operation),
+        total_requested: Number(d.total_requested ?? 0),
+        success_count: Number(d.success_count ?? 0),
+        failed_count: Number(d.failed_count ?? d.failure_count ?? 0),
+        details: Array.isArray(d.details) ? (d.details as BatchOperationResponse['details']) : [],
+      }
     }
     throw new Error(response.data.error?.message || '批量操作失败')
   },

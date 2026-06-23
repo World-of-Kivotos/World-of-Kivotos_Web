@@ -6,6 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from '@/components/ui/table'
@@ -16,10 +21,15 @@ import {
   AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog'
-import { useWhitelist, useAddWhitelist, useDeleteWhitelist } from '@/hooks/useWhitelist'
+import {
+  useWhitelist, useAddWhitelist, useDeleteWhitelist,
+  useSetWhitelistActive, useBatchOperation,
+} from '@/hooks/useWhitelist'
 import type { WhitelistEntry, AddWhitelistResult } from '@/types/whitelist'
 
-const PAGE_SIZE = 20
+const PAGE_SIZE_OPTIONS = [20, 50, 100]
+// 表格总列数 (选择框 + 6 个数据列 + 操作), 用于空/加载态占位单元格的 colSpan
+const COL_COUNT = 8
 
 function fmtDate(s?: string) {
   if (!s) return '—'
@@ -41,23 +51,80 @@ function channelLabel(entry: WhitelistEntry): string {
 
 export function WhitelistPage() {
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0])
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [addOpen, setAddOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const [issued, setIssued] = useState<AddWhitelistResult | null>(null)
+  // 选中行 id 集合 (供批量启用/禁用)。翻页/改页大小/搜索时清空, 避免跨页误操作
+  const [selected, setSelected] = useState<Set<number>>(new Set())
 
-  const list = useWhitelist({ page, size: PAGE_SIZE, search: search || undefined })
+  const list = useWhitelist({ page, size: pageSize, search: search || undefined })
   const add = useAddWhitelist()
   const del = useDeleteWhitelist()
+  const setActive = useSetWhitelistActive()
+  const batch = useBatchOperation()
 
   const data = list.data
+  const items = data?.items ?? []
+  const total = data?.total ?? 0
   const totalPages = data?.total_pages ?? 1
+
+  const clearSelection = () => setSelected(new Set())
+
+  const goPage = (p: number) => {
+    setPage(p)
+    clearSelection()
+  }
+
+  const changePageSize = (n: number) => {
+    setPageSize(n)
+    setPage(1)
+    clearSelection()
+  }
 
   const submitSearch = (e: FormEvent) => {
     e.preventDefault()
     setSearch(searchInput.trim())
     setPage(1)
+    clearSelection()
+  }
+
+  // 当前页全选状态 (三态: 全选 / 部分 / 未选)
+  const allChecked = items.length > 0 && items.every((e) => selected.has(e.id))
+  const someChecked = items.some((e) => selected.has(e.id))
+  const headerCheckState: boolean | 'indeterminate' = allChecked ? true : someChecked ? 'indeterminate' : false
+
+  const toggleOne = (id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (items.length > 0 && items.every((e) => prev.has(e.id))) {
+        items.forEach((e) => next.delete(e.id))
+      } else {
+        items.forEach((e) => next.add(e.id))
+      }
+      return next
+    })
+  }
+
+  const selectedNames = items.filter((e) => selected.has(e.id)).map((e) => e.name)
+
+  const runBatch = (op: 'enable' | 'disable') => {
+    if (selectedNames.length === 0) return
+    batch.mutate(
+      { operation: op, players: selectedNames.map((name) => ({ name })) },
+      { onSuccess: () => clearSelection() }
+    )
   }
 
   const submitAdd = (e: FormEvent) => {
@@ -95,7 +162,7 @@ export function WhitelistPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">白名单</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {data ? `共 ${data.total} 名玩家` : '玩家白名单管理'}
+            {data ? `共 ${total} 名玩家` : '玩家白名单管理'}
           </p>
         </div>
         <Button onClick={() => setAddOpen(true)}>
@@ -120,10 +187,34 @@ export function WhitelistPage() {
             </Button>
           </div>
 
+          {/* 批量操作工具栏: 有选中项时出现 */}
+          {selected.size > 0 && (
+            <div className="mt-4 flex items-center justify-between rounded-lg border bg-muted/40 px-4 py-2">
+              <span className="text-sm text-muted-foreground">已选 {selected.size} 项</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" disabled={batch.isPending} onClick={() => runBatch('enable')}>
+                  批量启用
+                </Button>
+                <Button variant="outline" size="sm" disabled={batch.isPending} onClick={() => runBatch('disable')}>
+                  批量禁用
+                </Button>
+                <Button variant="ghost" size="sm" onClick={clearSelection}>取消选择</Button>
+              </div>
+            </div>
+          )}
+
           <div className="mt-4 rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={headerCheckState}
+                      onCheckedChange={toggleAll}
+                      aria-label="全选本页"
+                      disabled={items.length === 0}
+                    />
+                  </TableHead>
                   <TableHead>玩家名</TableHead>
                   <TableHead>QQ</TableHead>
                   <TableHead>UUID</TableHead>
@@ -136,20 +227,34 @@ export function WhitelistPage() {
               <TableBody>
                 {list.isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">加载中…</TableCell>
+                    <TableCell colSpan={COL_COUNT} className="py-10 text-center text-sm text-muted-foreground">加载中…</TableCell>
                   </TableRow>
                 ) : list.isError ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">加载失败 (服务器未连接?)</TableCell>
+                    <TableCell colSpan={COL_COUNT} className="py-10 text-center text-sm text-muted-foreground">加载失败 (服务器未连接?)</TableCell>
                   </TableRow>
-                ) : !data || data.items.length === 0 ? (
+                ) : items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">暂无白名单</TableCell>
+                    <TableCell colSpan={COL_COUNT} className="py-10 text-center text-sm text-muted-foreground">暂无白名单</TableCell>
                   </TableRow>
                 ) : (
-                  data.items.map((entry: WhitelistEntry) => (
-                    <TableRow key={entry.id}>
-                      <TableCell className="font-medium">{entry.name}</TableCell>
+                  items.map((entry: WhitelistEntry) => (
+                    <TableRow key={entry.id} className={entry.isActive ? undefined : 'opacity-60'}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selected.has(entry.id)}
+                          onCheckedChange={() => toggleOne(entry.id)}
+                          aria-label={`选择 ${entry.name}`}
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {entry.name}
+                          {!entry.isActive && (
+                            <Badge variant="outline" className="border-destructive/40 font-normal text-destructive">已禁用</Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{entry.qq || '—'}</TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">
                         {entry.uuid || '—'}
@@ -157,31 +262,39 @@ export function WhitelistPage() {
                       <TableCell><Badge variant="outline" className="font-normal">{channelLabel(entry)}</Badge></TableCell>
                       <TableCell className="text-sm text-muted-foreground">{entry.addedByName || '—'}</TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">{fmtDate(entry.addedAt)}</TableCell>
-                      <TableCell className="text-right">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" aria-label="删除">
-                              <Trash2 />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>移除白名单</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                确定将 <span className="font-medium text-foreground">{entry.name}</span> 移出白名单? 该玩家将无法进入服务器。
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>取消</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                onClick={() => del.mutate(entry.name)}
-                              >
-                                移除
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-3">
+                          {/* 启用/禁用开关: 关闭后该玩家进服会被拒并提示"管理员已关闭访问权限" */}
+                          <Switch
+                            checked={entry.isActive}
+                            onCheckedChange={(v) => setActive.mutate({ name: entry.name, isActive: v })}
+                            aria-label={entry.isActive ? `禁用 ${entry.name}` : `启用 ${entry.name}`}
+                          />
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" aria-label="删除">
+                                <Trash2 />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>移除白名单</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  确定将 <span className="font-medium text-foreground">{entry.name}</span> 移出白名单? 该玩家将无法进入服务器。
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>取消</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  onClick={() => del.mutate(entry.name)}
+                                >
+                                  移除
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -190,12 +303,28 @@ export function WhitelistPage() {
             </Table>
           </div>
 
-          {data && totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">第 {data.page} / {totalPages} 页</span>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>上一页</Button>
-                <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>下一页</Button>
+          {/* 分页: 每页条数选择 + 翻页 + 页数统计 */}
+          {data && total > 0 && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>共 {total} 条</span>
+                <Select value={String(pageSize)} onValueChange={(v) => changePageSize(Number(v))}>
+                  <SelectTrigger className="h-8 w-[110px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <SelectItem key={n} value={String(n)}>{n} 条/页</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">第 {data.page} / {totalPages} 页</span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => goPage(page - 1)}>上一页</Button>
+                  <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => goPage(page + 1)}>下一页</Button>
+                </div>
               </div>
             </div>
           )}

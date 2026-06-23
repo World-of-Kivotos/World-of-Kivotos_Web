@@ -107,7 +107,7 @@ export interface AddWhitelistResult {
  * 批量操作请求
  */
 export interface BatchOperationRequest {
-  operation: 'add' | 'remove'
+  operation: 'add' | 'remove' | 'enable' | 'disable'
   source?: WhitelistSource
   added_by_name?: string
   added_by_uuid?: string

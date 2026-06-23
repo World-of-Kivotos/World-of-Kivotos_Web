@@ -77,6 +77,26 @@ export function useDeleteWhitelist() {
 }
 
 /**
+ * 启用/禁用某条白名单 (按玩家名)
+ */
+export function useSetWhitelistActive() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ name, isActive }: { name: string; isActive: boolean }) =>
+      whitelistApi.setActive(name, isActive),
+    onSuccess: (_data, vars) => {
+      toast.success(vars.isActive ? '已启用该玩家' : '已禁用该玩家')
+      queryClient.invalidateQueries({ queryKey: whitelistKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: whitelistKeys.stats() })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || '操作失败')
+    },
+  })
+}
+
+/**
  * 批量操作白名单
  */
 export function useBatchOperation() {
