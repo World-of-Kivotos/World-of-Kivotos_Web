@@ -1,4 +1,3 @@
-import axios from 'axios'
 import api from '@/lib/axios'
 import type {
   OperationLog,
@@ -9,14 +8,8 @@ import type {
   SurveyActivityResponse,
 } from '@/types/activity'
 
-// Quick-Survey API 基础 URL
+// Quick-Survey API 基础 URL (问卷独立后端, 与 mod 后端不同域)
 const SURVEY_API_URL = import.meta.env.VITE_SURVEY_API_URL || 'http://localhost:8000/api/v1'
-
-// 创建 Quick-Survey axios 实例
-const surveyApi = axios.create({
-  baseURL: SURVEY_API_URL,
-  timeout: 10000,
-})
 
 /**
  * 活动日志 API 服务
@@ -53,10 +46,11 @@ export const activityApi = {
    * 获取问卷系统活动日志
    */
   async getSurveyActivities(params?: GetSurveyActivitiesParams): Promise<SurveyActivityResponse> {
-    const response = await surveyApi.get<{
+    // 走带 JWT 的共享 api 实例 (后端 /activities 已加管理员鉴权), 用完整 URL 指向问卷后端
+    const response = await api.get<{
       success: boolean
       data: SurveyActivityResponse
-    }>('/activities', {
+    }>(`${SURVEY_API_URL}/activities`, {
       params: {
         action: params?.action,
         limit: params?.limit || 10,
