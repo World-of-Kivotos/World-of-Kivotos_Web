@@ -48,14 +48,12 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
-import { useSurveyDetail, useCreateSurvey, useUpdateSurveyWithQuestions } from '@/hooks/useSurvey'
+import { useSurveyDetail, useSaveSurveyWithQuestions } from '@/hooks/useSurvey'
 import type {
   QuestionType,
   QuestionOption,
   QuestionValidation,
-  QuestionCondition,
   CreateQuestionRequest,
-  CreateSurveyRequest,
   SurveyDetail,
 } from '@/types/survey'
 
@@ -70,10 +68,16 @@ interface SurveyEditModalProps {
   surveyId: number | null
 }
 
-interface LocalQuestion extends Omit<CreateQuestionRequest, 'order'> {
+// 编辑器内条件用目标题的本地 _id 引用(拖拽/重排都不失效); 保存时两段式解析为服务端 question_id
+interface LocalCondition {
+  depends_on: string // 目标依赖题的本地 _id
+  show_when: string | string[]
+}
+
+interface LocalQuestion extends Omit<CreateQuestionRequest, 'order' | 'condition'> {
   _id: string // 本地临时 ID
   order: number
-  condition?: QuestionCondition // 条件显示配置
+  condition?: LocalCondition // 条件显示配置 (depends_on = 目标题本地 _id)
 }
 
 // 题目类型配置（图标全部迁移到 lucide-react）
@@ -244,7 +248,7 @@ interface ConditionEditorProps {
   question: LocalQuestion
   allQuestions: LocalQuestion[]
   currentIndex: number
-  onChange: (condition: QuestionCondition | undefined) => void
+  onChange: (condition: LocalCondition | undefined) => void
 }
 
 function ConditionEditor({ question, allQuestions, currentIndex, onChange }: ConditionEditorProps) {
@@ -260,7 +264,7 @@ function ConditionEditor({ question, allQuestions, currentIndex, onChange }: Con
 
   const hasCondition = !!question.condition
   const selectedQuestion = question.condition
-    ? allQuestions.find((_, idx) => idx === question.condition!.depends_on)
+    ? allQuestions.find((q) => q._id === question.condition!.depends_on)
     : null
 
   // 获取选中题目的可选答案值
@@ -288,15 +292,13 @@ function ConditionEditor({ question, allQuestions, currentIndex, onChange }: Con
     if (!checked) {
       onChange(undefined)
     } else if (availableQuestions.length > 0) {
-      // 默认依赖第一个可用题目（depends_on 存的是 questions 数组索引）
-      const firstAvailable = availableQuestions[0]
-      const firstIndex = allQuestions.findIndex((q) => q._id === firstAvailable._id)
-      onChange({ depends_on: firstIndex, show_when: '' })
+      // 默认依赖第一个可用题目（depends_on 存的是目标题的本地 _id）
+      onChange({ depends_on: availableQuestions[0]._id, show_when: '' })
     }
   }
 
-  const handleQuestionChange = (questionIndex: number) => {
-    onChange({ depends_on: questionIndex, show_when: '' })
+  const handleQuestionChange = (targetLocalId: string) => {
+    onChange({ depends_on: targetLocalId, show_when: '' })
   }
 
   const handleValueToggle = (value: string) => {
@@ -360,8 +362,8 @@ function ConditionEditor({ question, allQuestions, currentIndex, onChange }: Con
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm text-muted-foreground">当</span>
             <Select
-              value={question.condition != null ? String(question.condition.depends_on) : undefined}
-              onValueChange={(v) => handleQuestionChange(parseInt(v))}
+              value={question.condition?.depends_on ?? undefined}
+              onValueChange={(v) => handleQuestionChange(v)}
             >
               <SelectTrigger className="w-auto min-w-56">
                 <SelectValue placeholder="选择依赖题目" />
@@ -370,7 +372,7 @@ function ConditionEditor({ question, allQuestions, currentIndex, onChange }: Con
                 {availableQuestions.map((q) => {
                   const realIndex = allQuestions.findIndex((aq) => aq._id === q._id)
                   return (
-                    <SelectItem key={q._id} value={String(realIndex)}>
+                    <SelectItem key={q._id} value={q._id}>
                       第{realIndex + 1}题: {q.title.slice(0, 20)}
                       {q.title.length > 20 ? '...' : ''}
                     </SelectItem>
@@ -694,9 +696,8 @@ export function SurveyEditModal({ open, onOpenChange, surveyId }: SurveyEditModa
   const detailQuery = useSurveyDetail(surveyId ?? 0)
   const initialData: SurveyDetail | null = mode === 'edit' ? detailQuery.data ?? null : null
 
-  const createMutation = useCreateSurvey()
-  const updateMutation = useUpdateSurveyWithQuestions()
-  const loading = createMutation.isPending || updateMutation.isPending
+  const saveMutation = useSaveSurveyWithQuestions()
+  const loading = saveMutation.isPending
 
   // 问卷基本信息
   const [title, setTitle] = useState('')
@@ -739,7 +740,10 @@ export function SurveyEditModal({ open, onOpenChange, surveyId }: SurveyEditModa
             is_pinned: q.is_pinned ?? false,
             order: q.order,
             validation: q.validation ?? undefined,
-            condition: q.condition ?? undefined,
+            // 服务端 condition.depends_on 是 question_id; 现有题本地 _id = existing_<id>
+            condition: q.condition
+              ? { depends_on: `existing_${q.condition.depends_on}`, show_when: q.condition.show_when }
+              : undefined,
             role: q.role ?? undefined,
           }))
       )
@@ -843,40 +847,22 @@ export function SurveyEditModal({ open, onOpenChange, surveyId }: SurveyEditModa
     }
   }, [])
 
-  // 组装下发载荷（depends_on 语义为 questions 数组索引，整卷按序重建保持一致）
-  const buildSurveyData = useCallback((): CreateSurveyRequest => {
-    return {
-      title: title.trim(),
-      description: description.trim() || undefined,
-      is_random: isRandom,
-      random_count: isRandom ? randomCount : undefined,
-      questions: questions.map((q, index) => ({
-        title: q.title.trim(),
-        description: q.description,
-        type: q.type,
-        options: q.options,
-        is_required: q.is_required ?? true,
-        is_pinned: q.is_pinned ?? false,
-        order: index,
-        validation: q.validation,
-        condition: q.condition,
-        role: q.role,
-      })),
-    }
-  }, [title, description, isRandom, randomCount, questions])
-
-  // 提交：新建用 useCreateSurvey，编辑用 useUpdateSurveyWithQuestions（整卷重建）
+  // 提交: 增量保存 (新建时 surveyId=null)。题目增删改与条件的 本地_id->question_id
+  // 解析都在 useSaveSurveyWithQuestions 内两段式完成, 这里只把编辑器状态原样交给它。
   const handleSubmit = useCallback(async () => {
     if (!isValid) return
-    const surveyData = buildSurveyData()
-
-    if (mode === 'edit' && surveyId != null) {
-      await updateMutation.mutateAsync({ surveyId, data: surveyData })
-    } else {
-      await createMutation.mutateAsync(surveyData)
-    }
+    await saveMutation.mutateAsync({
+      surveyId: surveyId ?? null,
+      base: {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        is_random: isRandom,
+        random_count: isRandom ? randomCount : undefined,
+      },
+      questions,
+    })
     onOpenChange(false)
-  }, [isValid, buildSurveyData, mode, surveyId, updateMutation, createMutation, onOpenChange])
+  }, [isValid, title, description, isRandom, randomCount, questions, surveyId, saveMutation, onOpenChange])
 
   const isDetailLoading = mode === 'edit' && detailQuery.isLoading
 

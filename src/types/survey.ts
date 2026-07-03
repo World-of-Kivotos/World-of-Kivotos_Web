@@ -37,7 +37,7 @@ export interface QuestionValidation {
  * 用于实现分支逻辑：根据某道题的答案决定是否显示当前题目
  */
 export interface QuestionCondition {
-  depends_on: number           // 依赖的问题 ID（或本地临时 ID 的索引）
+  depends_on: number           // 依赖题的 question_id（稳定引用，不随题序/编辑变化）
   show_when: string | string[] // 触发显示的答案值（支持单值或多值）
 }
 
@@ -116,14 +116,16 @@ export interface CreateQuestionRequest {
  */
 export interface UpdateQuestionRequest {
   title?: string
-  description?: string
+  // 可空字段: 传 null 显式清空该字段 (后端 exclude_unset, 省略=不改, null=清空)
+  description?: string | null
   type?: QuestionType
-  options?: QuestionOption[]
+  options?: QuestionOption[] | null
   is_required?: boolean
+  is_pinned?: boolean            // 是否保留 (随机抽题时始终出现); 增量更新须能改此标记
   order?: number
-  validation?: QuestionValidation
-  condition?: QuestionCondition  // 条件显示规则
-  role?: QuestionRole            // 语义标记 (玩家名/QQ)
+  validation?: QuestionValidation | null
+  condition?: QuestionCondition | null  // 条件显示规则; null=清除条件
+  role?: QuestionRole | null            // 语义标记 (玩家名/QQ); null=解绑
 }
 
 /**
