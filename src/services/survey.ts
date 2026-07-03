@@ -8,6 +8,8 @@ import type {
   CreateQuestionRequest,
   UpdateQuestionRequest,
   Question,
+  SurveyCategory,
+  ReorderSurveyItem,
 } from '@/types/survey'
 import type {
   SubmissionPaginatedResponse,
@@ -40,6 +42,7 @@ export interface GetSurveysParams {
   size?: number
   search?: string
   is_active?: boolean
+  category?: SurveyCategory
 }
 
 /**
@@ -67,6 +70,7 @@ export const surveyApi = {
           size: params?.size || 20,
           search: params?.search,
           is_active: params?.is_active,
+          category: params?.category,
         },
       }
     )
@@ -75,6 +79,19 @@ export const surveyApi = {
       return response.data.data
     }
     throw new Error(response.data.error?.message || '获取问卷列表失败')
+  },
+
+  /**
+   * 批量重排问卷展示顺序 (拖拽排序落库)
+   */
+  async reorderSurveys(orders: ReorderSurveyItem[]): Promise<void> {
+    const response = await api.patch<SurveyApiResponse<{ updated: number }>>(
+      `${SURVEY_API_BASE}/surveys/reorder`,
+      { orders }
+    )
+    if (!response.data.success) {
+      throw new Error(response.data.error?.message || '重排问卷失败')
+    }
   },
 
   /**

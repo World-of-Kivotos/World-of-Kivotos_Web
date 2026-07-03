@@ -6,6 +6,8 @@ import type {
   QuestionOption,
   QuestionValidation,
   QuestionRole,
+  SurveyCategory,
+  ReorderSurveyItem,
 } from '@/types/survey'
 import { toast } from 'sonner'
 
@@ -105,6 +107,42 @@ export function useToggleSurveyActive() {
 }
 
 /**
+ * 置顶 / 取消置顶问卷
+ */
+export function useToggleSurveyTop() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ surveyId, isPinned }: { surveyId: number; isPinned: boolean }) =>
+      surveyApi.updateSurvey(surveyId, { is_pinned: isPinned }),
+    onSuccess: (_, variables) => {
+      toast.success(variables.isPinned ? '已置顶' : '已取消置顶')
+      queryClient.invalidateQueries({ queryKey: surveyKeys.lists() })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || '操作失败')
+    },
+  })
+}
+
+/**
+ * 批量重排问卷展示顺序 (拖拽排序落库)
+ */
+export function useReorderSurveys() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (orders: ReorderSurveyItem[]) => surveyApi.reorderSurveys(orders),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: surveyKeys.lists() })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || '重排问卷失败')
+    },
+  })
+}
+
+/**
  * 获取问卷统计
  */
 export function useSurveyStats() {
@@ -136,7 +174,13 @@ export interface SaveQuestionInput {
 
 export interface SaveSurveyInput {
   surveyId: number | null // null=新建
-  base: { title: string; description?: string; is_random?: boolean; random_count?: number }
+  base: {
+    title: string
+    description?: string
+    is_random?: boolean
+    random_count?: number
+    category?: SurveyCategory // 仅新建时用于指定栏目; 编辑时省略以免改动
+  }
   questions: SaveQuestionInput[]
 }
 

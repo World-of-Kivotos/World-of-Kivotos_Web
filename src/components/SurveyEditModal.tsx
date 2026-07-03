@@ -55,6 +55,7 @@ import type {
   QuestionValidation,
   CreateQuestionRequest,
   SurveyDetail,
+  SurveyCategory,
 } from '@/types/survey'
 
 // ============================================
@@ -66,6 +67,8 @@ interface SurveyEditModalProps {
   onOpenChange: (open: boolean) => void
   /** 编辑模式传入问卷 ID；新建模式传 null */
   surveyId: number | null
+  /** 新建时把问卷归入的栏目 (whitelist / collection)，编辑模式忽略 */
+  defaultCategory?: SurveyCategory
 }
 
 // 编辑器内条件用目标题的本地 _id 引用(拖拽/重排都不失效); 保存时两段式解析为服务端 question_id
@@ -689,7 +692,7 @@ function SortableQuestionCard({
 // 主模态框组件
 // ============================================
 
-export function SurveyEditModal({ open, onOpenChange, surveyId }: SurveyEditModalProps) {
+export function SurveyEditModal({ open, onOpenChange, surveyId, defaultCategory }: SurveyEditModalProps) {
   const mode: 'create' | 'edit' = surveyId != null ? 'edit' : 'create'
 
   // 编辑模式拉取详情；新建模式 enabled=false（surveyId 传 0）
@@ -858,11 +861,13 @@ export function SurveyEditModal({ open, onOpenChange, surveyId }: SurveyEditModa
         description: description.trim() || undefined,
         is_random: isRandom,
         random_count: isRandom ? randomCount : undefined,
+        // 仅新建时指定栏目; 编辑时不传, 避免改动已有归属
+        category: surveyId == null ? defaultCategory : undefined,
       },
       questions,
     })
     onOpenChange(false)
-  }, [isValid, title, description, isRandom, randomCount, questions, surveyId, saveMutation, onOpenChange])
+  }, [isValid, title, description, isRandom, randomCount, questions, surveyId, defaultCategory, saveMutation, onOpenChange])
 
   const isDetailLoading = mode === 'edit' && detailQuery.isLoading
 

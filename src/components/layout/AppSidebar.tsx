@@ -6,6 +6,7 @@ import {
   Users,
   ClipboardList,
   ClipboardCheck,
+  FileStack,
   ScrollText,
   Settings,
   type LucideIcon,
@@ -18,6 +19,7 @@ type AppPath =
   | '/monitor'
   | '/players'
   | '/survey'
+  | '/forms'
   | '/review'
   | '/logs'
   | '/settings'
@@ -34,6 +36,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/monitor', label: '服务器监控', icon: Activity },
   { to: '/players', label: '在线玩家', icon: Users },
   { to: '/survey', label: '问卷管理', icon: ClipboardList },
+  { to: '/forms', label: '其他问卷', icon: FileStack },
   { to: '/review', label: '问卷审核', icon: ClipboardCheck },
   { to: '/logs', label: '操作日志', icon: ScrollText },
   { to: '/settings', label: '设置', icon: Settings },

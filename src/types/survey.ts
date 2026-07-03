@@ -1,6 +1,9 @@
 /**
  * 问卷接口
  */
+// 栏目/场景: whitelist=MC白名单卷, collection=其它收集表
+export type SurveyCategory = 'whitelist' | 'collection'
+
 export interface Survey {
   id: number
   title: string
@@ -9,6 +12,17 @@ export interface Survey {
   is_active: boolean
   is_random: boolean
   random_count: number | null
+  // 门户编排
+  sort_order: number
+  is_pinned: boolean
+  category: SurveyCategory
+  visibility: string
+  status: string
+  cover_url: string | null
+  icon: string | null
+  theme_color: string | null
+  summary: string | null
+  estimated_minutes: number | null
   question_count: number
   submission_count: number
   created_at: string
@@ -81,6 +95,7 @@ export interface CreateSurveyRequest {
   description?: string
   is_random?: boolean
   random_count?: number
+  category?: SurveyCategory // 建在哪个栏目 (缺省=whitelist)
   questions?: CreateQuestionRequest[]
 }
 
@@ -93,6 +108,25 @@ export interface UpdateSurveyRequest {
   is_active?: boolean
   is_random?: boolean
   random_count?: number
+  // 门户编排
+  sort_order?: number
+  is_pinned?: boolean
+  category?: SurveyCategory
+  visibility?: string
+  status?: string
+  cover_url?: string | null
+  icon?: string | null
+  theme_color?: string | null
+  summary?: string | null
+  estimated_minutes?: number | null
+}
+
+/**
+ * 批量重排问卷展示顺序
+ */
+export interface ReorderSurveyItem {
+  id: number
+  sort_order: number
 }
 
 /**

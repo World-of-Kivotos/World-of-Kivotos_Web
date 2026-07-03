@@ -84,7 +84,12 @@ const playersRoute = createRoute({
 const surveyRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/survey',
-  component: SurveyPage,
+  component: () => <SurveyPage category="whitelist" />,
+})
+const formsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/forms',
+  component: () => <SurveyPage category="collection" />,
 })
 const reviewRoute = createRoute({
   getParentRoute: () => appRoute,
@@ -112,6 +117,7 @@ const routeTree = rootRoute.addChildren([
     monitorRoute,
     playersRoute,
     surveyRoute,
+    formsRoute,
     reviewRoute,
     logsRoute,
     settingsRoute,
