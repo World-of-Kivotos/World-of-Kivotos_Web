@@ -97,6 +97,15 @@ const QUESTION_TYPES: {
   { value: 'image', label: '图片题', icon: ImageIcon, description: '上传图片' },
 ]
 
+// 可绑定系统字段的题型: 后端只从答案的 text/value 键取字符串标量, 多选(values)/
+// 图片(images)/判断(布尔 value)题绑了必然抽不出值, 玩家会在提交最后一步吃 400。
+const ROLE_BINDABLE_TYPES: QuestionType[] = ['single', 'text']
+
+const ROLE_LABELS: Record<'player_name' | 'qq', string> = {
+  player_name: '玩家名',
+  qq: 'QQ',
+}
+
 // 生成唯一 ID
 const generateId = () => `q_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 
@@ -458,6 +467,11 @@ function SortableQuestionCard({
   const typeConfig = QUESTION_TYPES.find((t) => t.value === question.type)
   const TypeIcon = typeConfig?.icon ?? Type
 
+  const roleBindable = ROLE_BINDABLE_TYPES.includes(question.type)
+  // 同一 role 全卷唯一: 后端按题序遍历、后者覆盖前者, 重复绑定会静默取错题的答案
+  const isRoleTakenElsewhere = (role: 'player_name' | 'qq') =>
+    allQuestions.some((q) => q._id !== question._id && q.role === role)
+
   return (
     <Card
       ref={setNodeRef}
@@ -596,6 +610,8 @@ function SortableQuestionCard({
                               : type.value === 'image'
                                 ? { max_images: 3 }
                                 : undefined,
+                          // 改成抽不出文本的题型时顺手解绑, 否则会留下一个后端永远抽不到值的绑定
+                          role: ROLE_BINDABLE_TYPES.includes(type.value) ? question.role : undefined,
                         })
                       }
                       className="h-auto flex-col gap-1.5 py-3"
@@ -658,19 +674,29 @@ function SortableQuestionCard({
                 </Label>
               </div>
 
-              {/* 语义标记: 把本题标记为玩家名/QQ, 提交时后端抽取到结构化字段 (建议用文本题) */}
+              {/* 语义标记: 把本题标记为玩家名/QQ, 提交时后端抽取到结构化字段 */}
               <div className="flex items-center gap-2">
                 <Label htmlFor={`role-${question._id}`} className="cursor-pointer">绑定字段</Label>
                 <select
                   id={`role-${question._id}`}
                   value={question.role ?? ''}
                   onChange={(e) => onUpdate({ ...question, role: (e.target.value || undefined) as LocalQuestion['role'] })}
-                  className="h-8 rounded-md border bg-background px-2 text-sm"
+                  className="h-8 rounded-md border bg-background px-2 text-sm disabled:opacity-50"
+                  disabled={!roleBindable}
                 >
                   <option value="">无</option>
-                  <option value="player_name">玩家名</option>
-                  <option value="qq">QQ</option>
+                  <option value="player_name" disabled={isRoleTakenElsewhere('player_name')}>
+                    {ROLE_LABELS.player_name}
+                    {isRoleTakenElsewhere('player_name') ? ' (已被其它题绑定)' : ''}
+                  </option>
+                  <option value="qq" disabled={isRoleTakenElsewhere('qq')}>
+                    {ROLE_LABELS.qq}
+                    {isRoleTakenElsewhere('qq') ? ' (已被其它题绑定)' : ''}
+                  </option>
                 </select>
+                {!roleBindable && (
+                  <span className="text-xs text-muted-foreground">仅文本题/单选题可绑定</span>
+                )}
               </div>
             </div>
 
@@ -771,6 +797,29 @@ export function SurveyEditModal({ open, onOpenChange, surveyId, defaultCategory 
   // 保留题目数量
   const pinnedCount = useMemo(() => questions.filter((q) => q.is_pinned).length, [questions])
 
+  // 绑定字段配置校验, 与后端 surveys.py 的启用校验、public.py 的抽取规则保持一致。
+  // 公开端提交时已不再单独收集玩家名, 绑定配错等于整卷提交不了, 必须在保存这一步拦住。
+  const roleIssue = useMemo(() => {
+    const badType = questions.find((q) => q.role && !ROLE_BINDABLE_TYPES.includes(q.type))
+    if (badType) {
+      const typeLabel = QUESTION_TYPES.find((t) => t.value === badType.type)?.label ?? badType.type
+      return `「${badType.title.trim() || '未命名题目'}」是${typeLabel}, 抽不出文本, 不能绑定字段`
+    }
+
+    for (const role of ['player_name', 'qq'] as const) {
+      const bound = questions.filter((q) => q.role === role)
+      if (bound.length > 1) return `有 ${bound.length} 道题都绑定了${ROLE_LABELS[role]}, 请只保留一道`
+    }
+
+    const nameQuestion = questions.find((q) => q.role === 'player_name')
+    if (!nameQuestion) return '请把一道题的绑定字段设为「玩家名」, 否则玩家提交时会取不到玩家名'
+    const nameLabel = nameQuestion.title.trim() || '未命名题目'
+    if (nameQuestion.is_required === false) return `玩家名题「${nameLabel}」必须设为必填`
+    if (nameQuestion.condition) return `玩家名题「${nameLabel}」不能配条件显示, 被隐藏时答案不会随提交上传`
+
+    return null
+  }, [questions])
+
   // 表单验证
   const isValid = useMemo(() => {
     if (!title.trim()) return false
@@ -778,8 +827,9 @@ export function SurveyEditModal({ open, onOpenChange, surveyId, defaultCategory 
     if (questions.some((q) => !q.title.trim())) return false
     if (isRandom && (!randomCount || randomCount > questions.length)) return false
     if (isRandom && randomCount && pinnedCount > randomCount) return false
+    if (roleIssue) return false
     return true
-  }, [title, questions, isRandom, randomCount, pinnedCount])
+  }, [title, questions, isRandom, randomCount, pinnedCount, roleIssue])
 
   // 添加题目
   const addQuestion = useCallback((type: QuestionType) => {
@@ -823,7 +873,8 @@ export function SurveyEditModal({ open, onOpenChange, surveyId, defaultCategory 
     const newId = generateId()
     setQuestions((prev) => [
       ...prev,
-      { ...question, _id: newId, title: `${question.title} (副本)`, order: prev.length },
+      // 副本必须解绑: role 全卷唯一, 两道题同 role 时后端后者覆盖前者, 会静默取错题的答案
+      { ...question, _id: newId, title: `${question.title} (副本)`, order: prev.length, role: undefined },
     ])
     setExpandedIds((prev) => new Set([...prev, newId]))
   }, [])
@@ -881,9 +932,11 @@ export function SurveyEditModal({ open, onOpenChange, surveyId, defaultCategory 
           ? '请设置有效的随机抽题数量'
           : isRandom && randomCount && pinnedCount > randomCount
             ? `保留题目(${pinnedCount})不能超过抽题数量(${randomCount})`
-            : isRandom && pinnedCount > 0
-              ? `共 ${questions.length} 道题目（${pinnedCount} 题保留），准备就绪`
-              : `共 ${questions.length} 道题目，准备就绪`
+            : roleIssue
+              ? roleIssue
+              : isRandom && pinnedCount > 0
+                ? `共 ${questions.length} 道题目（${pinnedCount} 题保留），准备就绪`
+                : `共 ${questions.length} 道题目，准备就绪`
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !loading && onOpenChange(false)}>
