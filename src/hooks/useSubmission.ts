@@ -42,10 +42,10 @@ export function useSubmissionDetail(submissionId: number) {
 /**
  * 获取统计概览
  */
-export function useSubmissionStats() {
+export function useSubmissionStats(category?: string) {
   return useQuery({
-    queryKey: submissionKeys.stats(),
-    queryFn: () => submissionApi.getStats(),
+    queryKey: [...submissionKeys.stats(), category],
+    queryFn: () => submissionApi.getStats(category),
     staleTime: 30 * 1000, // 30秒
     refetchInterval: 60 * 1000, // 每分钟自动刷新
   })

@@ -80,14 +80,14 @@ function ReviewDialog({ id, onClose }: { id: number; onClose: () => void }) {
 
   const act = (status: 'approved' | 'rejected') => {
     if (!d) return
-    const playerName = d.player_name
+    const playerName = d.player_name ?? ''
     review.mutate(
       { submissionId: d.id, data: { status, review_note: note || undefined }, playerName, reviewerName: reviewer?.displayName },
       {
         onSuccess: () => {
           // 审核通过后由面板侧发起加白, source 固定 ADMIN (mod Source 枚举不接受 API)。
-          // useAddWhitelist 自带成功/失败 toast, 拒绝时不加白。
-          if (status === 'approved') {
+          // 仅启用加白动作的卷才加白 (收集表 survey_add_whitelist=false); 拒绝时不加白。
+          if (status === 'approved' && d.survey_add_whitelist !== false && playerName) {
             addWhitelist.mutate({ name: playerName, qq: d.qq, source: 'ADMIN' })
           }
           onClose()
@@ -177,8 +177,9 @@ function TabCount({ n }: { n?: number }) {
 export function ReviewPage() {
   const [status, setStatus] = useState<SubmissionStatus | 'ALL'>('pending')
   const [reviewId, setReviewId] = useState<number | null>(null)
-  const stats = useSubmissionStats()
-  const subs = useSubmissions({ status: status === 'ALL' ? undefined : status, size: 50 })
+  // 审核队列只含白名单卷; 收集表(免审)提交在「其他问卷 -> 结果」里看, 不进此队列
+  const stats = useSubmissionStats('whitelist')
+  const subs = useSubmissions({ status: status === 'ALL' ? undefined : status, size: 50, category: 'whitelist' })
   const c = stats.data
 
   return (

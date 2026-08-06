@@ -231,6 +231,7 @@ export const submissionApi = {
           status: params?.status,
           survey_id: params?.survey_id,
           player_name: params?.player_name,
+          category: params?.category,
         },
       }
     )
@@ -239,6 +240,24 @@ export const submissionApi = {
       return response.data.data
     }
     throw new Error(response.data.error?.message || '获取提交列表失败')
+  },
+
+  /**
+   * 导出某问卷全部提交为 CSV 并触发浏览器下载 (走带 JWT 的 api 实例)
+   */
+  async exportSurveyCsv(surveyId: number, surveyTitle?: string): Promise<void> {
+    const response = await api.get(`${SURVEY_API_BASE}/surveys/${surveyId}/export`, {
+      responseType: 'blob',
+    })
+    const blob = new Blob([response.data as BlobPart], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${surveyTitle || `survey_${surveyId}`}_提交.csv`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
   },
 
   /**
@@ -270,11 +289,12 @@ export const submissionApi = {
   },
 
   /**
-   * 获取统计概览
+   * 获取统计概览 (category=whitelist 只统计白名单卷, 供审核页)
    */
-  async getStats(): Promise<SubmissionStats> {
+  async getStats(category?: string): Promise<SubmissionStats> {
     const response = await api.get<SurveyApiResponse<SubmissionStats>>(
-      `${SURVEY_API_BASE}/submissions/stats/overview`
+      `${SURVEY_API_BASE}/submissions/stats/overview`,
+      { params: { category } }
     )
 
     if (response.data.success && response.data.data) {

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Pencil, Pin, GripVertical } from 'lucide-react'
+import { Plus, Pencil, Pin, GripVertical, FileText } from 'lucide-react'
 import {
   DndContext,
   closestCenter,
@@ -19,6 +19,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@/lib/utils'
 import { SurveyEditModal } from '@/components/SurveyEditModal'
+import { SurveyResultsModal } from '@/components/SurveyResultsModal'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -39,12 +40,13 @@ interface SurveyPageProps {
 interface SortableSurveyRowProps {
   survey: Survey
   onEdit: (id: number) => void
+  onResults: (survey: Survey) => void
   onToggleActive: (survey: Survey) => void
   onTogglePin: (survey: Survey) => void
   actionsDisabled: boolean
 }
 
-function SortableSurveyRow({ survey, onEdit, onToggleActive, onTogglePin, actionsDisabled }: SortableSurveyRowProps) {
+function SortableSurveyRow({ survey, onEdit, onResults, onToggleActive, onTogglePin, actionsDisabled }: SortableSurveyRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: survey.id })
   const style = { transform: CSS.Transform.toString(transform), transition }
 
@@ -84,6 +86,9 @@ function SortableSurveyRow({ survey, onEdit, onToggleActive, onTogglePin, action
           >
             <Pin />
           </Button>
+          <Button variant="outline" size="sm" onClick={() => onResults(survey)} title="查看结果 / 导出 CSV">
+            <FileText /> 结果
+          </Button>
           <Button variant="outline" size="sm" onClick={() => onEdit(survey.id)}>
             <Pencil /> 编辑
           </Button>
@@ -105,6 +110,8 @@ export function SurveyPage({ category }: SurveyPageProps) {
   const [editorOpen, setEditorOpen] = useState(false)
   // null = 新建模式; number = 编辑该问卷。
   const [editingId, setEditingId] = useState<number | null>(null)
+  // 打开某问卷的"结果"(提交列表 + 导出); null=未打开
+  const [resultsSurvey, setResultsSurvey] = useState<Survey | null>(null)
   // 本地有序副本: 支撑拖拽的乐观更新。用查询数据签名做 key, 数据变化时在渲染期同步,
   // 避免 effect 内 setState 的级联渲染 (与 SurveyEditModal 的 seededKey 同一模式)。
   const [rows, setRows] = useState<Survey[]>([])
@@ -190,6 +197,7 @@ export function SurveyPage({ category }: SurveyPageProps) {
                           key={sv.id}
                           survey={sv}
                           onEdit={openEdit}
+                          onResults={setResultsSurvey}
                           onToggleActive={(s) => toggle.mutate({ surveyId: s.id, isActive: !s.is_active })}
                           onTogglePin={(s) => togglePin.mutate({ surveyId: s.id, isPinned: !s.is_pinned })}
                           actionsDisabled={busy}
@@ -209,6 +217,13 @@ export function SurveyPage({ category }: SurveyPageProps) {
         surveyId={editingId}
         defaultCategory={category ?? 'whitelist'}
       />
+      {resultsSurvey && (
+        <SurveyResultsModal
+          surveyId={resultsSurvey.id}
+          surveyTitle={resultsSurvey.title}
+          onClose={() => setResultsSurvey(null)}
+        />
+      )}
     </div>
   )
 }

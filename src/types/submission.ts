@@ -46,7 +46,7 @@ export interface SubmissionListItem {
   id: number
   survey_id: number
   survey_title: string
-  player_name: string
+  player_name: string | null  // 匿名收集表可空
   qq?: string | null
   status: SubmissionStatus
   in_review_group?: boolean | null  // false=提交时不在审核群 (机器人无法 @ 通知, 面板标记)
@@ -61,7 +61,9 @@ export interface SubmissionDetail {
   id: number
   survey_id: number
   survey_title: string
-  player_name: string
+  survey_category?: string          // whitelist / collection
+  survey_add_whitelist?: boolean    // 通过时是否加白 (收集表为 false)
+  player_name: string | null        // 匿名收集表可空
   qq: string | null
   ip_address: string
   ip_location: string | null   // 离线 ip2region 解析的归属地, 无数据为 null
@@ -113,6 +115,7 @@ export interface GetSubmissionsParams {
   status?: SubmissionStatus
   survey_id?: number
   player_name?: string
+  category?: string  // whitelist=审核队列 / collection=收集表结果
 }
 
 /**
