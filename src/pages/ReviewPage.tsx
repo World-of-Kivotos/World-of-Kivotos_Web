@@ -3,12 +3,20 @@ import { Check, X } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { useSubmissions, useSubmissionStats, useSubmissionDetail, useReviewSubmission } from '@/hooks/useSubmission'
-import { useAddWhitelist } from '@/hooks/useWhitelist'
+import {
+  useSubmissions,
+  useSubmissionStats,
+  useSubmissionDetail,
+  useReviewSubmission,
+  useBulkReview,
+} from '@/hooks/useSubmission'
+import { useAddWhitelist, useTableSelection } from '@/hooks/useWhitelist'
 import { useAuthStore } from '@/stores/auth'
 import type { SubmissionStatus, SubmissionAnswer, QuestionOption } from '@/types/submission'
 import { surveyImageUrl } from '@/services/survey'
@@ -101,7 +109,7 @@ function ReviewDialog({ id, onClose }: { id: number; onClose: () => void }) {
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {d ? d.player_name : '提交详情'}
+            {d ? d.player_name || '匿名' : '提交详情'}
             {d && statusBadge(d.status)}
           </DialogTitle>
         </DialogHeader>
@@ -177,10 +185,54 @@ function TabCount({ n }: { n?: number }) {
 export function ReviewPage() {
   const [status, setStatus] = useState<SubmissionStatus | 'ALL'>('pending')
   const [reviewId, setReviewId] = useState<number | null>(null)
-  // 审核队列只含白名单卷; 收集表(免审)提交在「其他问卷 -> 结果」里看, 不进此队列
-  const stats = useSubmissionStats('whitelist')
-  const subs = useSubmissions({ status: status === 'ALL' ? undefined : status, size: 50, category: 'whitelist' })
+  // 按"是否需要人工审核"取数而非按 category: 收集表也能手动开审核, 按 whitelist 取会让这类
+  // pending 提交在整个面板里没有审核入口。免审的收集表结果仍在「其他问卷 -> 结果」里看。
+  const stats = useSubmissionStats({ review_required: true })
+  const subs = useSubmissions({ status: status === 'ALL' ? undefined : status, size: 50, review_required: true })
+  const bulkReview = useBulkReview()
+  const addWhitelist = useAddWhitelist()
+  const [bulkNote, setBulkNote] = useState('')
   const c = stats.data
+
+  const items = subs.data?.items ?? []
+  // 只有待审的行能被批量处理, 已审行不给勾选框; 全选也只覆盖这些行, 否则"全选后批量通过"会
+  // 把已通过的行再提交一遍并在结果里报错
+  const pendingItems = items.filter((s) => s.status === 'pending')
+  const selection = useTableSelection(pendingItems)
+  const selected = selection.selectedItems
+
+  // 切换状态页签后旧选择必须作废。面板 eslint 禁止在 effect 里 setState, 故沿用本仓的渲染期同步模式
+  const [syncedStatus, setSyncedStatus] = useState<SubmissionStatus | 'ALL'>(status)
+  if (syncedStatus !== status) {
+    setSyncedStatus(status)
+    selection.clearSelection()
+  }
+
+  const runBulk = (next: 'approved' | 'rejected') => {
+    if (selected.length === 0) return
+    const targets = selected
+    bulkReview.mutate(
+      { ids: targets.map((t) => t.id), status: next, reviewNote: bulkNote.trim() || null },
+      {
+        onSuccess: (result) => {
+          if (next === 'approved') {
+            // 只对后端确认审核成功的那几条加白, 免得把整批失败的行也写进白名单
+            const okIds = new Set(result.results.filter((r) => r.ok).map((r) => r.id))
+            // 队列里现在也有关掉"通过后自动加白"的卷 (收集表开人工审核), 必须与单条审核走同一道
+            // 门控, 否则同一条提交批量点和单条点结果不同, 而批量这侧才产生真实副作用。
+            // 用 !== false 而非 === true: 旧后端不下发该字段, 缺失时按启用处理, 与单条审核语义一致。
+            for (const t of targets) {
+              if (okIds.has(t.id) && t.player_name && t.survey_add_whitelist !== false) {
+                addWhitelist.mutate({ name: t.player_name, qq: t.qq ?? null, source: 'ADMIN' })
+              }
+            }
+          }
+          setBulkNote('')
+          selection.clearSelection()
+        },
+      }
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -199,11 +251,41 @@ export function ReviewPage() {
       </Tabs>
 
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="space-y-3 p-4">
+          {selected.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 p-3">
+              <span className="text-sm font-medium tabular-nums">已选 {selected.length} 条</span>
+              <Input
+                value={bulkNote}
+                onChange={(e) => setBulkNote(e.target.value)}
+                placeholder="审核备注 (批量拒绝时建议填写)"
+                className="h-8 w-full sm:w-72"
+              />
+              <div className="ml-auto flex gap-2">
+                <Button variant="outline" size="sm" disabled={bulkReview.isPending} onClick={() => selection.clearSelection()}>
+                  取消选择
+                </Button>
+                <Button variant="outline" size="sm" className="text-destructive" disabled={bulkReview.isPending} onClick={() => runBulk('rejected')}>
+                  <X /> 批量拒绝
+                </Button>
+                <Button size="sm" disabled={bulkReview.isPending} onClick={() => runBulk('approved')}>
+                  <Check /> 批量通过并加白
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={selection.isPartiallySelected ? 'indeterminate' : selection.isAllSelected}
+                      disabled={pendingItems.length === 0}
+                      onCheckedChange={() => selection.toggleSelectAll()}
+                      aria-label="全选待审核提交"
+                    />
+                  </TableHead>
                   <TableHead>玩家</TableHead>
                   <TableHead>问卷</TableHead>
                   <TableHead>状态</TableHead>
@@ -213,16 +295,26 @@ export function ReviewPage() {
               </TableHeader>
               <TableBody>
                 {subs.isLoading ? (
-                  <TableRow><TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">加载中…</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">加载中…</TableCell></TableRow>
                 ) : subs.isError ? (
-                  <TableRow><TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">加载失败 (问卷服务未连接?)</TableCell></TableRow>
-                ) : !subs.data || subs.data.items.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">暂无提交</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">加载失败 (问卷服务未连接?)</TableCell></TableRow>
+                ) : items.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">暂无提交</TableCell></TableRow>
                 ) : (
-                  subs.data.items.map((s) => (
+                  items.map((s) => (
                     <TableRow key={s.id}>
+                      <TableCell className="w-10">
+                        {s.status === 'pending' && (
+                          <Checkbox
+                            checked={selection.selectedIds.has(s.id)}
+                            onCheckedChange={() => selection.toggleSelect(s.id)}
+                            aria-label={`选择 ${s.player_name ?? s.id}`}
+                          />
+                        )}
+                      </TableCell>
                       <TableCell className="font-medium">
-                        {s.player_name}
+                        {/* 开了人工审核的收集表可能没有玩家名题, 给占位免得整格空白 */}
+                        {s.player_name || <span className="font-normal text-muted-foreground">匿名</span>}
                         {s.status === 'pending' && s.in_review_group === false && (
                           <Badge variant="warning" className="ml-2 font-normal">未在审核群</Badge>
                         )}

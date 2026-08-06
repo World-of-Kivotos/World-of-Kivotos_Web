@@ -1,3 +1,5 @@
+import type { QuestionType } from '@/types/survey'
+
 /**
  * 提交状态
  */
@@ -12,12 +14,13 @@ export interface QuestionOption {
 }
 
 /**
- * 答案内容: 后端按题型存为对象 — single/boolean: {value}, multiple: {values},
- * text: {text}, image: {images}。保留扁平标量以兼容历史数据。
+ * 答案内容: 后端按题型存为对象 — single/select/boolean/number/date/rating: {value},
+ * multiple: {values}, text/short_text: {text}, image: {images}。保留扁平标量以兼容历史数据。
  */
 export type AnswerContent =
   | {
-      value?: string | boolean
+      // number/rating 存数字, date 存 "YYYY-MM-DD" 字符串, boolean 存布尔
+      value?: string | boolean | number
       values?: string[]
       text?: string
       images?: string[]
@@ -33,7 +36,7 @@ export interface SubmissionAnswer {
   id: number
   question_id: number
   question_title: string
-  question_type: 'single' | 'multiple' | 'boolean' | 'text' | 'image'
+  question_type: QuestionType
   question_options?: QuestionOption[] | null  // 选项列表，用于渲染选择题
   question_role?: 'player_name' | 'qq' | null  // 语义标记, 供识别玩家名/QQ 行
   content: AnswerContent | null
@@ -46,6 +49,7 @@ export interface SubmissionListItem {
   id: number
   survey_id: number
   survey_title: string
+  survey_add_whitelist?: boolean  // 通过时是否加白; 旧后端不下发, 缺失按启用处理
   player_name: string | null  // 匿名收集表可空
   qq?: string | null
   status: SubmissionStatus
@@ -107,6 +111,32 @@ export interface ReviewSubmissionRequest {
 }
 
 /**
+ * 批量审核请求
+ */
+export interface BulkReviewRequest {
+  ids: number[]
+  status: 'approved' | 'rejected'
+  review_note?: string | null
+}
+
+/**
+ * 批量审核的单条结果: 后端逐条处理, 单条失败不中断整批
+ */
+export interface BulkReviewItemResult {
+  id: number
+  ok: boolean
+  error: string | null
+}
+
+/**
+ * 批量审核响应
+ */
+export interface BulkReviewResponse {
+  updated: number
+  results: BulkReviewItemResult[]
+}
+
+/**
  * 获取提交列表参数
  */
 export interface GetSubmissionsParams {
@@ -116,6 +146,15 @@ export interface GetSubmissionsParams {
   survey_id?: number
   player_name?: string
   category?: string  // whitelist=审核队列 / collection=收集表结果
+  review_required?: boolean  // true=只取开启人工审核的卷, 收集表手动开审核后也能进队列
+}
+
+/**
+ * 获取提交统计参数
+ */
+export interface GetSubmissionStatsParams {
+  category?: string
+  review_required?: boolean  // 与列表同口径, 否则页签计数和表格内容对不上
 }
 
 /**

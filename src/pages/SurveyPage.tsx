@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Pencil, Pin, GripVertical, FileText } from 'lucide-react'
+import { Plus, Pencil, Pin, GripVertical, FileText, Copy } from 'lucide-react'
 import {
   DndContext,
   closestCenter,
@@ -29,6 +29,7 @@ import {
   useToggleSurveyActive,
   useToggleSurveyTop,
   useReorderSurveys,
+  useDuplicateSurvey,
 } from '@/hooks/useSurvey'
 import type { Survey, SurveyCategory, ReorderSurveyItem } from '@/types/survey'
 
@@ -41,12 +42,13 @@ interface SortableSurveyRowProps {
   survey: Survey
   onEdit: (id: number) => void
   onResults: (survey: Survey) => void
+  onDuplicate: (survey: Survey) => void
   onToggleActive: (survey: Survey) => void
   onTogglePin: (survey: Survey) => void
   actionsDisabled: boolean
 }
 
-function SortableSurveyRow({ survey, onEdit, onResults, onToggleActive, onTogglePin, actionsDisabled }: SortableSurveyRowProps) {
+function SortableSurveyRow({ survey, onEdit, onResults, onDuplicate, onToggleActive, onTogglePin, actionsDisabled }: SortableSurveyRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: survey.id })
   const style = { transform: CSS.Transform.toString(transform), transition }
 
@@ -92,6 +94,15 @@ function SortableSurveyRow({ survey, onEdit, onResults, onToggleActive, onToggle
           <Button variant="outline" size="sm" onClick={() => onEdit(survey.id)}>
             <Pencil /> 编辑
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={actionsDisabled}
+            onClick={() => onDuplicate(survey)}
+            title="复制为草稿副本 (含题目与分支, 不含提交)"
+          >
+            <Copy /> 复制
+          </Button>
           <Button variant="outline" size="sm" disabled={actionsDisabled} onClick={() => onToggleActive(survey)}>
             {survey.is_active ? '停用' : '启用'}
           </Button>
@@ -107,6 +118,7 @@ export function SurveyPage({ category }: SurveyPageProps) {
   const toggle = useToggleSurveyActive()
   const togglePin = useToggleSurveyTop()
   const reorder = useReorderSurveys()
+  const duplicate = useDuplicateSurvey()
   const [editorOpen, setEditorOpen] = useState(false)
   // null = 新建模式; number = 编辑该问卷。
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -153,7 +165,7 @@ export function SurveyPage({ category }: SurveyPageProps) {
     reorder.mutate(orders)
   }
 
-  const busy = toggle.isPending || togglePin.isPending || reorder.isPending
+  const busy = toggle.isPending || togglePin.isPending || reorder.isPending || duplicate.isPending
 
   return (
     <div className="space-y-6">
@@ -198,6 +210,7 @@ export function SurveyPage({ category }: SurveyPageProps) {
                           survey={sv}
                           onEdit={openEdit}
                           onResults={setResultsSurvey}
+                          onDuplicate={(s) => duplicate.mutate(s.id)}
                           onToggleActive={(s) => toggle.mutate({ surveyId: s.id, isActive: !s.is_active })}
                           onTogglePin={(s) => togglePin.mutate({ surveyId: s.id, isPinned: !s.is_pinned })}
                           actionsDisabled={busy}

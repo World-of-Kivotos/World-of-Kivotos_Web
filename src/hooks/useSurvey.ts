@@ -1,12 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { surveyApi, type GetSurveysParams } from '@/services/survey'
 import type {
+  CreateSurveyRequest,
   UpdateSurveyRequest,
   QuestionType,
   QuestionOption,
   QuestionValidation,
   QuestionRole,
-  SurveyCategory,
+  ConditionOperator,
+  ConditionRule,
+  QuestionCondition,
   ReorderSurveyItem,
 } from '@/types/survey'
 import { toast } from 'sonner'
@@ -21,6 +24,7 @@ export const surveyKeys = {
   details: () => [...surveyKeys.all, 'detail'] as const,
   detail: (id: number) => [...surveyKeys.details(), id] as const,
   stats: () => [...surveyKeys.all, 'stats'] as const,
+  analytics: (id: number) => [...surveyKeys.all, 'analytics', id] as const,
 }
 
 /**
@@ -143,6 +147,37 @@ export function useReorderSurveys() {
 }
 
 /**
+ * 复制问卷
+ */
+export function useDuplicateSurvey() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (surveyId: number) => surveyApi.duplicateSurvey(surveyId),
+    onSuccess: (result) => {
+      toast.success(`已复制为「${result.title}」`)
+      queryClient.invalidateQueries({ queryKey: surveyKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: surveyKeys.stats() })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || '复制问卷失败')
+    },
+  })
+}
+
+/**
+ * 获取问卷统计分析 (逐题聚合较重, 仅在统计面板打开时才拉)
+ */
+export function useSurveyAnalytics(surveyId: number, enabled = true) {
+  return useQuery({
+    queryKey: surveyKeys.analytics(surveyId),
+    queryFn: () => surveyApi.getAnalytics(surveyId),
+    enabled: enabled && surveyId > 0,
+    staleTime: 30 * 1000,
+  })
+}
+
+/**
  * 获取问卷统计
  */
 export function useSurveyStats() {
@@ -155,9 +190,25 @@ export function useSurveyStats() {
 }
 
 /**
+ * 编辑器里的一条条件规则。
+ * 形态与服务端 ConditionRule 一一对应, 只有 question_id 换成了目标依赖题的本地 _id
+ * (新题此刻还没有服务端 id), 保存时统一解析为 question_id。
+ */
+export interface SaveConditionRule {
+  question_id: string
+  operator: ConditionOperator
+  value?: string | number | string[]
+}
+
+export interface SaveCondition {
+  action: 'show' | 'hide'
+  match: 'all' | 'any'
+  rules: SaveConditionRule[]
+}
+
+/**
  * 保存问卷编辑器里的一道题 (供 useSaveSurveyWithQuestions 内部使用)。
  * _id: 现有题为 `existing_<serverId>`, 新题为编辑器生成的随机串。
- * condition.depends_on: 目标依赖题的本地 _id, 保存时解析为服务端 question_id。
  */
 export interface SaveQuestionInput {
   _id: string
@@ -169,18 +220,22 @@ export interface SaveQuestionInput {
   is_pinned?: boolean
   validation?: QuestionValidation
   role?: QuestionRole
-  condition?: { depends_on: string; show_when: string | string[] }
+  condition?: SaveCondition
 }
+
+/**
+ * 问卷基本信息与全部设置项, 原样透传给 create/update, 故字段名必须与后端 schema 一致。
+ *
+ * 刻意不含 is_active: 后端在 is_active=true 这一刻会校验"必须有一道可抽取的玩家名题",
+ * 而保存流程是先 PATCH 基本信息再逐题增删, 此刻题目尚未落库, 带上它必然 400。
+ * access_password 不是 Survey 的列, 后端只在 update_survey 里拦截并哈希。
+ */
+export type SaveSurveyBase = Omit<CreateSurveyRequest, 'questions'> &
+  Pick<UpdateSurveyRequest, 'access_password'>
 
 export interface SaveSurveyInput {
   surveyId: number | null // null=新建
-  base: {
-    title: string
-    description?: string
-    is_random?: boolean
-    random_count?: number
-    category?: SurveyCategory // 仅新建时用于指定栏目; 编辑时省略以免改动
-  }
+  base: SaveSurveyBase
   questions: SaveQuestionInput[]
 }
 
@@ -191,7 +246,7 @@ const EXISTING_PREFIX = 'existing_'
  *
  * 替代旧的"删光重建": 按 question id 做增量 add/update/delete, 未改动的题保持原 id,
  * 其历史提交答案(按 question_id 关联)不再被级联删除。
- * 条件分支两段式落库: 先建/改所有题拿到服务端 id, 再把 condition.depends_on
+ * 条件分支两段式落库: 先建/改所有题拿到服务端 id, 再把每条规则的 question_id
  * 从"目标题的本地 _id"解析为服务端 question_id 后回填。
  */
 export function useSaveSurveyWithQuestions() {
@@ -202,11 +257,16 @@ export function useSaveSurveyWithQuestions() {
       // 1. 建/改问卷基本信息 (新建不内联题目, 题目统一走下方增量)
       let sid: number
       if (surveyId == null) {
-        const created = await surveyApi.createSurvey({ ...base })
+        const { access_password, ...createBase } = base
+        const created = await surveyApi.createSurvey(createBase)
         sid = created.id
+        // 口令不是 Survey 的列, 创建接口收不到它, 只能建完再 PATCH 一次交给 update_survey 哈希
+        if (access_password) {
+          await surveyApi.updateSurvey(sid, { access_password })
+        }
       } else {
         sid = surveyId
-        await surveyApi.updateSurvey(sid, { ...base })
+        await surveyApi.updateSurvey(sid, base)
       }
 
       // 2. 现有题目集合 (仅编辑态)
@@ -263,11 +323,17 @@ export function useSaveSurveyWithQuestions() {
         if (!q.condition && !isExisting) continue
         const selfId = localToServer.get(q._id)
         if (selfId == null) continue
-        let resolved: { depends_on: number; show_when: string | string[] } | null = null
+        let resolved: QuestionCondition | null = null
         if (q.condition) {
-          const targetId = localToServer.get(q.condition.depends_on)
-          // 目标题被删/不存在 -> 清掉悬空条件
-          resolved = targetId != null ? { depends_on: targetId, show_when: q.condition.show_when } : null
+          const rules: ConditionRule[] = []
+          for (const rule of q.condition.rules) {
+            const targetId = localToServer.get(rule.question_id)
+            // 依赖题被删/不存在 -> 丢掉这条规则, 别把悬空 question_id 写进库
+            if (targetId == null) continue
+            rules.push({ question_id: targetId, operator: rule.operator, value: rule.value })
+          }
+          // 规则全部悬空等价于没配条件, 落 null 而不是空 rules, 免得后端按"空条件"再判一次
+          resolved = rules.length > 0 ? { action: q.condition.action, match: q.condition.match, rules } : null
         }
         await surveyApi.updateQuestion(sid, selfId, { condition: resolved })
       }

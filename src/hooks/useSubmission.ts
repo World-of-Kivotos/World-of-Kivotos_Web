@@ -1,7 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { submissionApi } from '@/services/survey'
 import { whitelistKeys } from '@/hooks/useWhitelist'
-import type { GetSubmissionsParams, ReviewSubmissionRequest } from '@/types/submission'
+import type {
+  GetSubmissionsParams,
+  GetSubmissionStatsParams,
+  ReviewSubmissionRequest,
+} from '@/types/submission'
 import { toast } from 'sonner'
 
 /**
@@ -42,10 +46,10 @@ export function useSubmissionDetail(submissionId: number) {
 /**
  * 获取统计概览
  */
-export function useSubmissionStats(category?: string) {
+export function useSubmissionStats(params?: GetSubmissionStatsParams) {
   return useQuery({
-    queryKey: [...submissionKeys.stats(), category],
-    queryFn: () => submissionApi.getStats(category),
+    queryKey: [...submissionKeys.stats(), params ?? {}],
+    queryFn: () => submissionApi.getStats(params),
     staleTime: 30 * 1000, // 30秒
     refetchInterval: 60 * 1000, // 每分钟自动刷新
   })
@@ -89,6 +93,45 @@ export function useReviewSubmission() {
     },
     onError: (error: Error) => {
       toast.error(error.message || '审核失败')
+    },
+  })
+}
+
+/**
+ * 批量审核提交
+ *
+ * 与单条审核一样, 加白职责仍单点在面板侧: 批量通过后由调用方对 player_name 非空且该卷启用了
+ * 加白动作的行逐个走 useAddWhitelist, 此处只负责审核状态本身。
+ */
+export function useBulkReview() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      ids,
+      status,
+      reviewNote,
+    }: {
+      ids: number[]
+      status: 'approved' | 'rejected'
+      reviewNote?: string | null
+    }) => submissionApi.bulkReview(ids, status, reviewNote),
+    onSuccess: (result, variables) => {
+      const action = variables.status === 'approved' ? '通过' : '拒绝'
+      const failed = result.results.filter((item) => !item.ok)
+      if (failed.length > 0) {
+        // 后端单条失败不中断整批, 只报 updated 会把失败的那几条谎报成成功
+        toast.error(`批量${action}: 成功 ${result.updated} 条, 失败 ${failed.length} 条`)
+      } else {
+        toast.success(`已批量${action} ${result.updated} 条`)
+      }
+      queryClient.invalidateQueries({ queryKey: submissionKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: submissionKeys.stats() })
+      // 详情缓存里还留着旧状态, 不失效的话点开刚批过的那条仍显示待审
+      queryClient.invalidateQueries({ queryKey: submissionKeys.details() })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || '批量审核失败')
     },
   })
 }

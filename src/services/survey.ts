@@ -10,6 +10,8 @@ import type {
   Question,
   SurveyCategory,
   ReorderSurveyItem,
+  DuplicateSurveyResult,
+  SurveyAnalytics,
 } from '@/types/survey'
 import type {
   SubmissionPaginatedResponse,
@@ -17,7 +19,10 @@ import type {
   SubmissionStats,
   CleanupResult,
   GetSubmissionsParams,
+  GetSubmissionStatsParams,
   ReviewSubmissionRequest,
+  SubmissionStatus,
+  BulkReviewResponse,
 } from '@/types/submission'
 
 // 问卷系统的 API 基础路径（独立后端: questionnaire.mcwok.cn, 非 mod 的 api.mcwok.cn）
@@ -138,6 +143,34 @@ export const surveyApi = {
   },
 
   /**
+   * 复制问卷 (深拷贝题目与条件分支, 不复制提交数据; 副本为草稿且未启用)
+   */
+  async duplicateSurvey(surveyId: number): Promise<DuplicateSurveyResult> {
+    const response = await api.post<SurveyApiResponse<DuplicateSurveyResult>>(
+      `${SURVEY_API_BASE}/surveys/${surveyId}/duplicate`
+    )
+
+    if (response.data.success && response.data.data) {
+      return response.data.data
+    }
+    throw new Error(response.data.error?.message || '复制问卷失败')
+  },
+
+  /**
+   * 获取问卷统计分析
+   */
+  async getAnalytics(surveyId: number): Promise<SurveyAnalytics> {
+    const response = await api.get<SurveyApiResponse<SurveyAnalytics>>(
+      `${SURVEY_API_BASE}/surveys/${surveyId}/analytics`
+    )
+
+    if (response.data.success && response.data.data) {
+      return response.data.data
+    }
+    throw new Error(response.data.error?.message || '获取统计分析失败')
+  },
+
+  /**
    * 删除问卷
    */
   async deleteSurvey(surveyId: number): Promise<void> {
@@ -232,6 +265,7 @@ export const submissionApi = {
           survey_id: params?.survey_id,
           player_name: params?.player_name,
           category: params?.category,
+          review_required: params?.review_required,
         },
       }
     )
@@ -243,11 +277,13 @@ export const submissionApi = {
   },
 
   /**
-   * 导出某问卷全部提交为 CSV 并触发浏览器下载 (走带 JWT 的 api 实例)
+   * 导出某问卷的提交为 CSV 并触发浏览器下载 (走带 JWT 的 api 实例)
+   * status 省略时导出全部, 传入则只导出该审核状态的提交
    */
-  async exportSurveyCsv(surveyId: number, surveyTitle?: string): Promise<void> {
+  async exportSurveyCsv(surveyId: number, surveyTitle?: string, status?: SubmissionStatus): Promise<void> {
     const response = await api.get(`${SURVEY_API_BASE}/surveys/${surveyId}/export`, {
       responseType: 'blob',
+      params: { status },
     })
     const blob = new Blob([response.data as BlobPart], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -289,12 +325,34 @@ export const submissionApi = {
   },
 
   /**
-   * 获取统计概览 (category=whitelist 只统计白名单卷, 供审核页)
+   * 批量审核提交
+   *
+   * 后端逐条复用单条审核的完整逻辑 (含通知入队), 单条失败不中断整批, 失败原因随 results 返回。
+   * 调用方必须检查 results 里的 ok, 只报 updated 会漏掉部分失败。
    */
-  async getStats(category?: string): Promise<SubmissionStats> {
+  async bulkReview(
+    ids: number[],
+    reviewStatus: 'approved' | 'rejected',
+    reviewNote?: string | null
+  ): Promise<BulkReviewResponse> {
+    const response = await api.patch<SurveyApiResponse<BulkReviewResponse>>(
+      `${SURVEY_API_BASE}/submissions/bulk-review`,
+      { ids, status: reviewStatus, review_note: reviewNote ?? null }
+    )
+
+    if (response.data.success && response.data.data) {
+      return response.data.data
+    }
+    throw new Error(response.data.error?.message || '批量审核失败')
+  },
+
+  /**
+   * 获取统计概览 (审核页传 review_required=true, 与它的列表口径保持一致)
+   */
+  async getStats(params?: GetSubmissionStatsParams): Promise<SubmissionStats> {
     const response = await api.get<SurveyApiResponse<SubmissionStats>>(
       `${SURVEY_API_BASE}/submissions/stats/overview`,
-      { params: { category } }
+      { params: { category: params?.category, review_required: params?.review_required } }
     )
 
     if (response.data.success && response.data.data) {
