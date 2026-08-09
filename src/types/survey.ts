@@ -47,6 +47,8 @@ export interface Survey {
   // 提交后动作: webhook 推送
   action_webhook: boolean
   webhook_url: string | null
+  // 通知投递群号。null=默认审核群并 @ 提交者本人; 填了群号=纯文本播报到该群 (管理向)
+  notify_group_id: number | null
   // 口令只回传"是否设置", 哈希绝不下发
   has_access_password: boolean
   // 列表接口不下发 availability, 仅详情有
@@ -204,6 +206,7 @@ export interface CreateSurveyRequest {
   action_notify_group?: boolean
   action_webhook?: boolean
   webhook_url?: string | null
+  notify_group_id?: number | null
   questions?: CreateQuestionRequest[]
 }
 
@@ -244,6 +247,7 @@ export interface UpdateSurveyRequest {
   action_notify_group?: boolean
   action_webhook?: boolean
   webhook_url?: string | null
+  notify_group_id?: number | null
   // 非 Survey 列: 后端拦截后哈希入 access_password_hash。传 '' 或 null 清除口令, 省略=不改
   access_password?: string | null
 }

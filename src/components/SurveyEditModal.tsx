@@ -117,6 +117,7 @@ interface SurveySettingsState {
   actionAddWhitelist: boolean
   actionIssueCode: boolean
   actionNotifyGroup: boolean
+  notifyGroupId: string
   actionWebhook: boolean
   webhookUrl: string
   icon: string
@@ -365,6 +366,7 @@ function defaultSettings(category: SurveyCategory): SurveySettingsState {
     actionAddWhitelist: whitelist,
     actionIssueCode: whitelist,
     actionNotifyGroup: whitelist,
+    notifyGroupId: '',
     actionWebhook: false,
     webhookUrl: '',
     icon: '',
@@ -393,6 +395,7 @@ function settingsFromDetail(detail: SurveyDetail): SurveySettingsState {
     actionAddWhitelist: detail.action_add_whitelist,
     actionIssueCode: detail.action_issue_code,
     actionNotifyGroup: detail.action_notify_group,
+    notifyGroupId: detail.notify_group_id == null ? '' : String(detail.notify_group_id),
     actionWebhook: detail.action_webhook,
     webhookUrl: detail.webhook_url ?? '',
     icon: detail.icon ?? '',
@@ -1416,11 +1419,33 @@ function SettingsPanel({ settings, onPatch, hasStoredPassword, isCreate }: Setti
           />
           <SettingSwitchRow
             id="set-notify"
-            label="推送审核群通知"
+            label="推送群通知"
             hint="关闭后新提交与审核结果都不进通知队列, 群里完全静默。"
             checked={settings.actionNotifyGroup}
             onCheckedChange={(v) => onPatch({ actionNotifyGroup: v })}
           />
+
+          {settings.actionNotifyGroup && (
+            <div className="pl-11">
+              <Label htmlFor="set-notify-group" className="mb-2 block">
+                通知投递群号
+              </Label>
+              <Input
+                id="set-notify-group"
+                value={settings.notifyGroupId}
+                onChange={(e) => onPatch({ notifyGroupId: e.target.value.replace(/\D/g, '') })}
+                placeholder="留空 = 默认审核群"
+                inputMode="numeric"
+                maxLength={15}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                留空: 发到默认审核群并 @ 提交者本人 (白名单卷用这个)。
+                填群号: 纯文本播报到该群, QQ 号写进正文、不 @ ——
+                招募表投到管理群时用, 那种群里没有提交者本人, @ 也送不达。
+              </p>
+            </div>
+          )}
+
           <SettingSwitchRow
             id="set-webhook"
             label="提交后推送 Webhook"
@@ -2016,6 +2041,8 @@ export function SurveyEditModal({ open, onOpenChange, surveyId, defaultCategory 
       action_add_whitelist: settings.actionAddWhitelist,
       action_issue_code: settings.actionIssueCode,
       action_notify_group: settings.actionNotifyGroup,
+      // 同上: 关掉通知就清空群号, 不留"关着但填着"的悬空配置
+      notify_group_id: settings.actionNotifyGroup ? toPositiveInt(settings.notifyGroupId) : null,
       action_webhook: settings.actionWebhook,
       // 关掉推送时顺手清空地址, 免得留个"关着但填着"的悬空配置
       webhook_url: settings.actionWebhook ? trimToNull(settings.webhookUrl) : null,
