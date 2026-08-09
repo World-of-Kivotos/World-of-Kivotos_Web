@@ -94,7 +94,13 @@ const formsRoute = createRoute({
 const reviewRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/review',
-  component: ReviewPage,
+  component: () => <ReviewPage category="whitelist" />,
+})
+// 收集表审核独立成页: 与进服申请混在一个队列里, 两边的待办会互相淹没
+const formReviewRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/form-review',
+  component: () => <ReviewPage category="collection" />,
 })
 const logsRoute = createRoute({
   getParentRoute: () => appRoute,
@@ -119,6 +125,7 @@ const routeTree = rootRoute.addChildren([
     surveyRoute,
     formsRoute,
     reviewRoute,
+    formReviewRoute,
     logsRoute,
     settingsRoute,
   ]),

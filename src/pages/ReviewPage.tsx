@@ -19,6 +19,7 @@ import {
 import { useAddWhitelist, useTableSelection } from '@/hooks/useWhitelist'
 import { useAuthStore } from '@/stores/auth'
 import type { SubmissionStatus, SubmissionAnswer, QuestionOption } from '@/types/submission'
+import type { SurveyCategory } from '@/types/survey'
 import { surveyImageUrl } from '@/services/survey'
 
 function statusBadge(s: SubmissionStatus) {
@@ -163,7 +164,9 @@ function ReviewDialog({ id, onClose }: { id: number; onClose: () => void }) {
                     <X /> 拒绝
                   </Button>
                   <Button disabled={review.isPending} onClick={() => act('approved')}>
-                    <Check /> 通过并加白名单
+                    {/* 按该卷是否真的启用加白动作决定文案, 比按栏目判更准:
+                        白名单栏目的卷也可能在设置里关掉了加白 */}
+                    <Check /> {d.survey_add_whitelist === false ? '通过' : '通过并加白名单'}
                   </Button>
                 </div>
               </div>
@@ -182,13 +185,20 @@ function TabCount({ n }: { n?: number }) {
   return <span className="ml-1.5 text-xs tabular-nums opacity-70">{n}</span>
 }
 
-export function ReviewPage() {
+interface ReviewPageProps {
+  /** 栏目: whitelist=进服申请审核, collection=收集表审核。两个待办分开, 免得互相淹没 */
+  category: SurveyCategory
+}
+
+export function ReviewPage({ category }: ReviewPageProps) {
   const [status, setStatus] = useState<SubmissionStatus | 'ALL'>('pending')
   const [reviewId, setReviewId] = useState<number | null>(null)
-  // 按"是否需要人工审核"取数而非按 category: 收集表也能手动开审核, 按 whitelist 取会让这类
-  // pending 提交在整个面板里没有审核入口。免审的收集表结果仍在「其他问卷 -> 结果」里看。
-  const stats = useSubmissionStats({ review_required: true })
-  const subs = useSubmissions({ status: status === 'ALL' ? undefined : status, size: 50, review_required: true })
+  const isWhitelist = category === 'whitelist'
+  // 同时按栏目与"是否需要人工审核"取数: 前者把两个待办分开, 后者滤掉免审的收集表
+  // (那些提交即终态, 结果在「其他问卷 -> 结果」里看, 不该占审核队列)。
+  const query = { category, review_required: true } as const
+  const stats = useSubmissionStats(query)
+  const subs = useSubmissions({ ...query, status: status === 'ALL' ? undefined : status, size: 50 })
   const bulkReview = useBulkReview()
   const addWhitelist = useAddWhitelist()
   const [bulkNote, setBulkNote] = useState('')
@@ -237,8 +247,12 @@ export function ReviewPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">问卷审核</h1>
-        <p className="mt-1 text-sm text-muted-foreground">玩家提交审核与加白</p>
+        <h1 className="text-2xl font-semibold tracking-tight">{isWhitelist ? '问卷审核' : '收集表审核'}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {isWhitelist
+            ? '进服申请的提交审核与加白'
+            : '开启了人工审核的收集表提交; 免审收集表的结果在「其他问卷 - 结果」里看'}
+        </p>
       </div>
 
       <Tabs value={status} onValueChange={(v) => setStatus(v as SubmissionStatus | 'ALL')}>
@@ -269,7 +283,8 @@ export function ReviewPage() {
                   <X /> 批量拒绝
                 </Button>
                 <Button size="sm" disabled={bulkReview.isPending} onClick={() => runBulk('approved')}>
-                  <Check /> 批量通过并加白
+                  {/* 收集表不加白 (加白与否仍以每行的 survey_add_whitelist 为准), 按钮文案别误导 */}
+                  <Check /> {isWhitelist ? '批量通过并加白' : '批量通过'}
                 </Button>
               </div>
             </div>

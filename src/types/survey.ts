@@ -131,6 +131,8 @@ export type QuestionType =
   | 'date'
   | 'rating'
   | 'image'
+  // 分节说明块: 只渲染标题与说明, 不收答案 (后端 QUESTION_TYPES 里 answerable=false)
+  | 'section'
 
 // 题目语义标记: 把某道题标记为系统字段, 后端据此抽取结构化字段 (玩家名/QQ)
 export type QuestionRole = 'player_name' | 'qq'

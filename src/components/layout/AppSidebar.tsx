@@ -6,6 +6,7 @@ import {
   Users,
   ClipboardList,
   ClipboardCheck,
+  FileCheck,
   FileStack,
   ScrollText,
   Settings,
@@ -21,6 +22,7 @@ type AppPath =
   | '/survey'
   | '/forms'
   | '/review'
+  | '/form-review'
   | '/logs'
   | '/settings'
 
@@ -38,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/survey', label: '问卷管理', icon: ClipboardList },
   { to: '/forms', label: '其他问卷', icon: FileStack },
   { to: '/review', label: '问卷审核', icon: ClipboardCheck },
+  { to: '/form-review', label: '收集表审核', icon: FileCheck },
   { to: '/logs', label: '操作日志', icon: ScrollText },
   { to: '/settings', label: '设置', icon: Settings },
 ]

@@ -114,6 +114,8 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   date: '日期题',
   rating: '评分题',
   image: '图片题',
+  // 分节说明块不收答案, 后端统计已把它整行排除; 这里保留标签只是为了类型完备
+  section: '分节说明',
 }
 
 // 后端对这些题型不产出任何可聚合结构 (distribution/numeric/samples 全空), 直接给出去处而非空白

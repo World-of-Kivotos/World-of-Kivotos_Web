@@ -6,6 +6,7 @@ import {
   ToggleLeft,
   Type,
   TextCursorInput,
+  Heading,
   Hash,
   Calendar,
   Star,
@@ -153,6 +154,7 @@ const QUESTION_TYPES: {
   { value: 'date', label: '日期题', icon: Calendar, description: '选择一个日期' },
   { value: 'rating', label: '评分题', icon: Star, description: '按星级打分' },
   { value: 'image', label: '图片题', icon: ImageIcon, description: '上传图片' },
+  { value: 'section', label: '分节说明', icon: Heading, description: '只显示标题与说明, 不收答案' },
 ]
 
 // 必须配选项的题型 (与后端 question_types.needs_options 对齐)
@@ -198,6 +200,8 @@ const OPERATORS_BY_TYPE: Record<QuestionType, ConditionOperator[]> = {
   date: ['eq', 'neq', 'answered', 'not_answered'],
   rating: ['gt', 'lt', 'eq', 'neq', 'answered', 'not_answered'],
   image: [],
+  // 分节说明块没有答案可比, 不能当条件依赖题 (候选表按运算符非空过滤, 空数组即排除)
+  section: [],
 }
 
 // 只判"答没答"的运算符，不需要填比较值
@@ -1069,6 +1073,7 @@ function SortableQuestionCard({
   const typeConfig = QUESTION_TYPES.find((t) => t.value === question.type)
   const TypeIcon = typeConfig?.icon ?? Type
 
+  const isSection = question.type === 'section'
   const roleBindable = ROLE_BINDABLE_TYPES.includes(question.type)
   // 同一 role 全卷唯一: 后端按题序遍历、后者覆盖前者, 重复绑定会静默取错题的答案
   const isRoleTakenElsewhere = (role: 'player_name' | 'qq') =>
@@ -1162,33 +1167,42 @@ function SortableQuestionCard({
             {/* 题目标题 */}
             <div>
               <Label className="mb-2 block">
-                题目标题 <span className="text-destructive">*</span>
+                {isSection ? '章节标题' : '题目标题'} <span className="text-destructive">*</span>
               </Label>
               <Textarea
                 value={question.title}
                 onChange={(e) => onUpdate({ ...question, title: e.target.value })}
-                placeholder="请输入题目标题"
+                placeholder={isSection ? '例: 第二部分 · AI 使用情况' : '请输入题目标题'}
                 rows={2}
                 className="resize-none"
               />
             </div>
 
-            {/* 题目说明 */}
+            {/* 题目说明。分节块的说明是整段引导文字, 给多行输入并保留换行 */}
             <div>
               <Label className="mb-2 block">
-                题目说明 <span className="text-xs text-muted-foreground">(可选)</span>
+                {isSection ? '章节说明' : '题目说明'} <span className="text-xs text-muted-foreground">(可选)</span>
               </Label>
-              <Input
-                value={question.description || ''}
-                onChange={(e) => onUpdate({ ...question, description: e.target.value || undefined })}
-                placeholder="为题目添加额外说明"
-              />
+              {isSection ? (
+                <Textarea
+                  value={question.description || ''}
+                  onChange={(e) => onUpdate({ ...question, description: e.target.value || undefined })}
+                  placeholder="这一节要问什么、希望对方怎么作答; 换行会原样展示给玩家"
+                  rows={4}
+                />
+              ) : (
+                <Input
+                  value={question.description || ''}
+                  onChange={(e) => onUpdate({ ...question, description: e.target.value || undefined })}
+                  placeholder="为题目添加额外说明"
+                />
+              )}
             </div>
 
             {/* 题目类型 */}
             <div>
               <Label className="mb-2 block">题目类型</Label>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-6 gap-2">
                 {QUESTION_TYPES.map((type) => {
                   const Icon = type.icon
                   const selected = question.type === type.value
@@ -1205,6 +1219,8 @@ function SortableQuestionCard({
                           validation: defaultValidationFor(type.value),
                           // 改成抽不出文本的题型时顺手解绑, 否则会留下一个后端永远抽不到值的绑定
                           role: ROLE_BINDABLE_TYPES.includes(type.value) ? question.role : undefined,
+                          // 分节说明块不收答案, 标成必填会让必填计数虚高; 后端也按 answerable 忽略它
+                          is_required: type.value === 'section' ? false : question.is_required,
                         })
                       }
                       className="h-auto flex-col gap-1.5 py-3"
@@ -1262,8 +1278,9 @@ function SortableQuestionCard({
               />
             )}
 
-            {/* 必填 / 保留设置 */}
-            <div className="flex flex-wrap items-center gap-6 pt-2">
+            {/* 必填 / 保留设置。分节说明块不收答案, 这三项对它都没有意义, 整块隐藏而不是置灰,
+                免得让人以为"配了没生效" */}
+            <div className={cn('flex flex-wrap items-center gap-6 pt-2', isSection && 'hidden')}>
               <div className="flex items-center gap-2">
                 <Switch
                   id={`req-${question._id}`}
@@ -2224,7 +2241,7 @@ export function SurveyEditModal({ open, onOpenChange, surveyId, defaultCategory 
                 {/* 添加题目 - 十种题型两行排布，免新增 dropdown wrapper */}
                 <div className="mt-4 rounded-xl border-2 border-dashed border-border p-3">
                   <p className="mb-2 text-center text-xs text-muted-foreground">添加题目</p>
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-6 gap-2">
                     {QUESTION_TYPES.map((type) => {
                       const Icon = type.icon
                       return (
