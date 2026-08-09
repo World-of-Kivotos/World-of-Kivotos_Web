@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Pencil, Pin, GripVertical, FileText, Copy } from 'lucide-react'
+import { Plus, Pencil, Pin, GripVertical, FileText, Copy, Trash2 } from 'lucide-react'
 import {
   DndContext,
   closestCenter,
@@ -25,11 +25,22 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog'
+import {
   useSurveys,
   useToggleSurveyActive,
   useToggleSurveyTop,
   useReorderSurveys,
   useDuplicateSurvey,
+  useDeleteSurvey,
 } from '@/hooks/useSurvey'
 import type { Survey, SurveyCategory, ReorderSurveyItem } from '@/types/survey'
 
@@ -45,10 +56,13 @@ interface SortableSurveyRowProps {
   onDuplicate: (survey: Survey) => void
   onToggleActive: (survey: Survey) => void
   onTogglePin: (survey: Survey) => void
+  onDelete: (survey: Survey) => void
+  /** 删除按钮是否可用。白名单卷承载着进服申请与全部历史提交, 不在列表里给一键删除的入口 */
+  canDelete: boolean
   actionsDisabled: boolean
 }
 
-function SortableSurveyRow({ survey, onEdit, onResults, onDuplicate, onToggleActive, onTogglePin, actionsDisabled }: SortableSurveyRowProps) {
+function SortableSurveyRow({ survey, onEdit, onResults, onDuplicate, onToggleActive, onTogglePin, onDelete, canDelete, actionsDisabled }: SortableSurveyRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: survey.id })
   const style = { transform: CSS.Transform.toString(transform), transition }
 
@@ -106,6 +120,18 @@ function SortableSurveyRow({ survey, onEdit, onResults, onDuplicate, onToggleAct
           <Button variant="outline" size="sm" disabled={actionsDisabled} onClick={() => onToggleActive(survey)}>
             {survey.is_active ? '停用' : '启用'}
           </Button>
+          {canDelete ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              disabled={actionsDisabled}
+              onClick={() => onDelete(survey)}
+              title="删除该收集表及其全部提交"
+            >
+              <Trash2 />
+            </Button>
+          ) : null}
         </div>
       </TableCell>
     </TableRow>
@@ -119,6 +145,9 @@ export function SurveyPage({ category }: SurveyPageProps) {
   const togglePin = useToggleSurveyTop()
   const reorder = useReorderSurveys()
   const duplicate = useDuplicateSurvey()
+  const remove = useDeleteSurvey()
+  // 待删除的收集表; null=未在确认中。删除会连带提交与答案一起没, 必须过一道确认
+  const [deleteTarget, setDeleteTarget] = useState<Survey | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
   // null = 新建模式; number = 编辑该问卷。
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -165,7 +194,8 @@ export function SurveyPage({ category }: SurveyPageProps) {
     reorder.mutate(orders)
   }
 
-  const busy = toggle.isPending || togglePin.isPending || reorder.isPending || duplicate.isPending
+  const busy =
+    toggle.isPending || togglePin.isPending || reorder.isPending || duplicate.isPending || remove.isPending
 
   return (
     <div className="space-y-6">
@@ -213,6 +243,8 @@ export function SurveyPage({ category }: SurveyPageProps) {
                           onDuplicate={(s) => duplicate.mutate(s.id)}
                           onToggleActive={(s) => toggle.mutate({ surveyId: s.id, isActive: !s.is_active })}
                           onTogglePin={(s) => togglePin.mutate({ surveyId: s.id, isPinned: !s.is_pinned })}
+                          onDelete={setDeleteTarget}
+                          canDelete={isCollection}
                           actionsDisabled={busy}
                         />
                       ))}
@@ -237,6 +269,37 @@ export function SurveyPage({ category }: SurveyPageProps) {
           onClose={() => setResultsSurvey(null)}
         />
       )}
+
+      {/* 删除确认。提交数写进正文而不是笼统说"相关数据": 已收上来的答卷删掉就没了,
+          得让人在按下去之前看见具体要毁掉多少份 */}
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除「{deleteTarget?.title}」?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget && deleteTarget.submission_count > 0
+                ? `该收集表已有 ${deleteTarget.submission_count} 份提交, 删除后连同全部答卷一并消失, 无法恢复。建议先在「结果」里导出 CSV 备份。`
+                : '该收集表尚无提交, 删除后其题目与分支配置一并消失, 无法恢复。'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={remove.isPending}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={remove.isPending}
+              onClick={(e) => {
+                // 阻止 Radix 的默认关闭: 删除失败时对话框要留在原地, 否则用户只看到一闪而过的
+                // 报错却分不清到底删没删
+                e.preventDefault()
+                if (!deleteTarget) return
+                remove.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) })
+              }}
+            >
+              {remove.isPending ? '删除中...' : '确认删除'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
