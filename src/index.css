@@ -11,6 +11,10 @@
   - 弹层 (popover) 保持不透明, 保证菜单可读。
 */
 :root {
+  /* 浏览器据此决定原生控件 (数字步进器、日期时间选择器、下拉、滚动条) 用亮色还是暗色渲染。
+     不声明的话一律按亮色画, 深色主题下会冒出白底方块 —— 问卷设置页那一堆数字与
+     datetime-local 输入最明显。 */
+  color-scheme: light;
   --radius: 0.75rem;
 
   --background: hsl(0 0% 96%);
@@ -54,6 +58,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: hsl(0 0% 6%);
   --foreground: hsl(0 0% 95%);
   --card: hsl(0 0% 100% / 0.08);
@@ -187,4 +192,18 @@
 .scrollbar-thin::-webkit-scrollbar-thumb {
   background-color: hsl(0 0% 50% / 0.4);
   border-radius: 3px;
+}
+
+/* 数字输入去掉原生步进箭头: 那对小箭头在窄输入框里是块突兀的方形色块, 而这些字段
+   (抽题数量、数值范围、提交上限) 都有 min/max 与保存时校验兜着, 不靠点箭头调。 */
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
 }
