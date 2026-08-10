@@ -21,11 +21,11 @@ export const activityKeys = {
 
 /**
  * 格式化时间为相对时间
- * @param dateString - ISO 格式的时间字符串（可能是 UTC 时间）
+ * @param dateString - ISO 格式的时间字符串（问卷后端已带 +00:00，mod 侧为服务器本地时间）
  */
 function formatRelativeTime(dateString: string): string {
-  // 确保时间字符串被正确解析为 UTC 时间
-  // 如果时间字符串没有时区信息，添加 Z 后缀表示 UTC
+  // 兜底: 不带时区标记的串按 UTC 解析。问卷后端已统一带标记 (app/core/timefmt.py),
+  // 这里保留是为了兼容还没带标记的来源, 免得又变成"把 UTC 当本地时间"少 8 小时。
   let normalizedDateString = dateString
   if (!dateString.endsWith('Z') && !dateString.includes('+') && !dateString.includes('-', 10)) {
     normalizedDateString = dateString + 'Z'

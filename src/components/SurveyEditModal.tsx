@@ -232,9 +232,9 @@ const generateId = () => `q_${Date.now()}_${Math.random().toString(36).slice(2, 
 /**
  * ISO 字符串 -> <input type="datetime-local"> 的值。
  *
- * 后端把 starts_at/ends_at 按 naive UTC 存，isoformat 出来的串不带时区标记，
- * 而 JS 的 Date 会把不带时区的串当"本地时间"解析 —— 直接塞进输入框等于把 UTC 当本地时间显示，
- * 保存时再原样回传，每存一次就整体偏移一个时区。故读的时候补 Z 强制按 UTC 解析再取本地字段。
+ * 后端把 starts_at/ends_at 按 naive UTC 存，出站已统一补上 +00:00 标记 (app/core/timefmt.py)。
+ * 补 Z 的分支保留作兜底: 一旦拿到不带标记的串，JS 的 Date 会当"本地时间"解析 —— 那等于把 UTC
+ * 当本地时间显示，保存时再原样回传，每存一次就整体偏移一个时区。
  */
 function isoToLocalInput(iso: string | null | undefined): string {
   if (!iso) return ''
