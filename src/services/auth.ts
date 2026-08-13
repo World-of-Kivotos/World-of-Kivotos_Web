@@ -52,6 +52,18 @@ export interface HealthResponse {
 }
 
 /**
+ * 个人识别码状态。后端只存哈希, 因此这里永远拿不到完整明文 —— 明文仅在签发响应里出现一次。
+ */
+export interface PersonalCodeStatus {
+  issued: boolean
+  codeLength: number
+  prefix?: string
+  suffix?: string
+  issuedAt?: string
+  boundQq: string[]
+}
+
+/**
  * 认证API服务
  */
 export const authApi = {
@@ -124,6 +136,31 @@ export const authApi = {
       return { token: response.data.data.token, expiryHours: response.data.data.expiryHours }
     }
     throw new Error(response.data.error?.message || '生成注册令牌失败')
+  },
+
+  /**
+   * 查询当前管理员的个人识别码状态 (掩码前后缀 + 已绑定的 QQ 号)
+   */
+  async getPersonalCode(): Promise<PersonalCodeStatus> {
+    const response = await api.get<ApiResponse<PersonalCodeStatus>>('/v1/admin/personal-code')
+
+    if (response.data.success && response.data.data) {
+      return response.data.data
+    }
+    throw new Error(response.data.error?.message || '获取个人识别码失败')
+  },
+
+  /**
+   * 签发/重置个人识别码。明文只在这一次响应里出现, 之后无法再取回。
+   */
+  async issuePersonalCode(): Promise<{ code: string; codeLength: number }> {
+    const response = await api.post<ApiResponse<{ code: string; codeLength: number; message: string }>>(
+      '/v1/admin/personal-code'
+    )
+    if (response.data.success && response.data.data) {
+      return { code: response.data.data.code, codeLength: response.data.data.codeLength }
+    }
+    throw new Error(response.data.error?.message || '签发个人识别码失败')
   },
 
   /**
