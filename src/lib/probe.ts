@@ -25,14 +25,16 @@ export interface ProbeOutcome {
 }
 
 export interface ProbeOptions {
-  /** 发包轮数, 首轮不计入统计 */
-  rounds?: number
+  /** 发包总时长 (毫秒), 轮数由它除以间隔得出 */
+  durationMs?: number
   /** 发包间隔 (毫秒) */
   intervalMs?: number
   /** 收尾等待时间, 超过此时长仍未回的算丢包 */
   tailWaitMs?: number
   /** 建连超时 */
   connectTimeoutMs?: number
+  /** 每收到一个样本回调一次, 用于实时显示 */
+  onSample?: (rtt: number, received: number, sent: number) => void
   signal?: AbortSignal
 }
 
@@ -41,11 +43,19 @@ interface Sample {
   rtt: number
 }
 
+/**
+ * 默认测 14 秒 + 1 秒收尾 = 15 秒。
+ *
+ * 250ms 的间隔给出 56 个样本, 丢包率的分辨率约 1.8% —— 再密下去除了给探针加压
+ * 并不会让结论更准, 再稀就会让偶发丢包在统计上失真。
+ */
+export const PROBE_TOTAL_MS = 15_000
+
 const DEFAULTS = {
-  rounds: 15,
-  intervalMs: 180,
-  tailWaitMs: 2000,
-  connectTimeoutMs: 6000,
+  durationMs: 14_000,
+  intervalMs: 250,
+  tailWaitMs: 1_000,
+  connectTimeoutMs: 6_000,
 }
 
 function failed(error: string): ProbeOutcome {
@@ -86,8 +96,8 @@ function summarize(samples: Sample[], effectiveSent: number): ProbeOutcome {
 }
 
 export function probeNode(url: string, options: ProbeOptions = {}): Promise<ProbeOutcome> {
-  const rounds = options.rounds ?? DEFAULTS.rounds
   const intervalMs = options.intervalMs ?? DEFAULTS.intervalMs
+  const rounds = Math.max(2, Math.floor((options.durationMs ?? DEFAULTS.durationMs) / intervalMs))
   const tailWaitMs = options.tailWaitMs ?? DEFAULTS.tailWaitMs
   const connectTimeoutMs = options.connectTimeoutMs ?? DEFAULTS.connectTimeoutMs
 
@@ -186,7 +196,9 @@ export function probeNode(url: string, options: ProbeOptions = {}): Promise<Prob
       pending.delete(seq)
       // 首轮不计入: 连接刚建立时 TCP 拥塞窗口尚未展开, 这一次的耗时不代表稳态延迟
       if (seq === 0) return
-      samples.push({ seq, rtt: arrivedAt - sentAt })
+      const rtt = arrivedAt - sentAt
+      samples.push({ seq, rtt })
+      options.onSample?.(rtt, samples.length, Math.max(0, sent - 1))
     }
 
     socket.onerror = () => finish(failed('探针连接失败'))
