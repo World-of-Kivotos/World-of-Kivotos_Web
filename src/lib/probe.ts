@@ -33,8 +33,12 @@ export interface ProbeOptions {
   tailWaitMs?: number
   /** 建连超时 */
   connectTimeoutMs?: number
-  /** 每收到一个样本回调一次, 用于实时显示 */
-  onSample?: (rtt: number, received: number, sent: number) => void
+  /**
+   * 每收到一个样本回调一次, 用于实时显示。
+   * 带上 seq 是为了让调用方能按序号落位 —— 没回调到的序号就是丢包, 波形图上要留出空档,
+   * 只给个计数的话丢包在图上会被后续样本悄悄填平。
+   */
+  onSample?: (sample: { seq: number; rtt: number }) => void
   signal?: AbortSignal
 }
 
@@ -198,7 +202,7 @@ export function probeNode(url: string, options: ProbeOptions = {}): Promise<Prob
       if (seq === 0) return
       const rtt = arrivedAt - sentAt
       samples.push({ seq, rtt })
-      options.onSample?.(rtt, samples.length, Math.max(0, sent - 1))
+      options.onSample?.({ seq, rtt })
     }
 
     socket.onerror = () => finish(failed('探针连接失败'))
