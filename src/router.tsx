@@ -8,6 +8,7 @@ import {
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
+import { NetworkCheckPage } from '@/pages/NetworkCheckPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { WhitelistPage } from '@/pages/WhitelistPage'
 import { MonitorPage } from '@/pages/MonitorPage'
@@ -38,6 +39,13 @@ const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/register',
   component: RegisterPage,
+})
+
+// 玩家线路自查: 面向玩家的公开页, 故挂在 rootRoute 而不进受保护布局 —— 要进服的人本来就没有后台账号
+const networkRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/network',
+  component: NetworkCheckPage,
 })
 
 // 受保护布局路由 (pathless): 进入前校验登录态, 未登录跳 /login
@@ -116,6 +124,7 @@ const settingsRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   loginRoute,
   registerRoute,
+  networkRoute,
   appRoute.addChildren([
     indexRoute,
     dashboardRoute,
