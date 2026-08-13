@@ -33,6 +33,20 @@ function ms(value: number | null | undefined): string {
   return value >= 100 ? Math.round(value).toString() : value.toFixed(1)
 }
 
+/**
+ * 测量途中的即时读数取已采样本的中位数, 而不是最后一次往返。
+ *
+ * 单次往返本身就抖, 直接显示会让数字每 250ms 乱跳一次, 既读不出来也没法做翻页动画;
+ * 中位数随样本增加平缓收敛, 而且它就是最终要给出的那个指标 —— 玩家看到的数字一路
+ * 逼近终值, 不会在结束瞬间突变。
+ */
+function runningMedian(wave: (number | undefined)[]): number | null {
+  const values = wave.filter((v): v is number => typeof v === 'number')
+  if (values.length === 0) return null
+  const sorted = [...values].sort((a, b) => a - b)
+  return sorted[Math.floor(sorted.length / 2)]
+}
+
 const CARD =
   'rounded-2xl border border-black/[0.07] bg-white/55 backdrop-blur-xl backdrop-saturate-150 ' +
   'dark:border-white/[0.08] dark:bg-white/[0.045]'
@@ -287,8 +301,7 @@ export function NetworkCheckPage() {
           <div className="space-y-3">
             {ranked.map(({ node, outcome }, i) => {
               const wave = waves[node.id] ?? []
-              const live = [...wave].reverse().find((v) => v !== undefined)
-              const value = outcome?.p50 ?? live ?? null
+              const value = outcome?.p50 ?? runningMedian(wave)
               const isBest = best?.node.id === node.id
               return (
                 <article
@@ -315,11 +328,9 @@ export function NetworkCheckPage() {
                     </div>
                     <div className="flex shrink-0 items-baseline gap-1">
                       <span className="font-mono text-xl leading-none">
-                        {phase === 'done' && outcome?.status === 'ok' ? (
-                          <RollingNumber value={ms(value)} />
-                        ) : (
-                          <span className="tabular-nums">{ms(value)}</span>
-                        )}
+                        {/* 测量途中缩短滚动时长: 采样间隔 250ms, 用终值那套 620ms 会让上一次还没
+                            滚完下一个值就来了, 数字一直悬在中间读不出来 */}
+                        <RollingNumber value={ms(value)} duration={phase === 'done' ? 620 : 260} />
                       </span>
                       <span className="text-xs text-muted-foreground">ms</span>
                     </div>
