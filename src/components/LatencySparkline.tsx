@@ -2,8 +2,15 @@ import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
 
 interface LatencySparklineProps {
-  /** 按发送序号落位的样本, 空洞即丢包 */
+  /** 按发送序号落位的样本, 下标即第几个探测包 */
   samples: (number | undefined)[]
+  /**
+   * 已经发出去的探测数。
+   *
+   * 判定丢包必须以它为界, 而不是 samples.length —— 数组长度取决于最后一个**成功**样本的位置,
+   * 用它当界会把末尾的连续丢包说成"还没测到", 也会在样本乱序到达时把仍在路上的包画成丢包。
+   */
+  probed: number
   /** 总槽位数, 决定波形铺满前的留白 */
   slots: number
   /** 纵轴满格对应的毫秒数 */
@@ -19,7 +26,13 @@ interface LatencySparklineProps {
  *
  * 丢包画成贴底的暗槽而不是跳过: 跳过会让后面的样本前移把空洞填平, 波形看起来反而更"整齐"。
  */
-export function LatencySparkline({ samples, slots, ceiling, className }: LatencySparklineProps) {
+export function LatencySparkline({
+  samples,
+  probed,
+  slots,
+  ceiling,
+  className,
+}: LatencySparklineProps) {
   const { bars, max } = useMemo(() => {
     const values = samples.filter((v): v is number => typeof v === 'number')
     // 纵轴上限取实测峰值与给定天花板的较大者, 并留 15% 余量, 免得最高那根顶到框
@@ -35,8 +48,8 @@ export function LatencySparkline({ samples, slots, ceiling, className }: Latency
     >
       {Array.from({ length: slots }, (_, i) => {
         const value = bars[i]
-        const pending = value === undefined && i >= bars.length
-        const lost = value === undefined && i < bars.length
+        const pending = value === undefined && i >= probed
+        const lost = value === undefined && i < probed
 
         if (pending) {
           return <div key={i} className="h-[3px] flex-1 rounded-full bg-foreground/[0.07]" />

@@ -4,14 +4,58 @@ import { cn } from '@/lib/utils'
 import { useTheme } from '@/lib/theme'
 import { RollingNumber } from '@/components/RollingNumber'
 import { LatencySparkline } from '@/components/LatencySparkline'
-import { PROBE_TOTAL_MS, probeNode, score, type ProbeOutcome } from '@/lib/probe'
+import {
+  PROBE_TOTAL_MS,
+  PROBE_WARMUP_MS,
+  probeNode,
+  score,
+  summarizeLive,
+  type ProbeOutcome,
+} from '@/lib/probe'
+import { useFlipReorder } from '@/lib/useFlipReorder'
 import { useNetworkNodes } from '@/hooks/useNetwork'
 import type { NetworkNode } from '@/types/network'
 
 type Phase = 'loading' | 'testing' | 'done'
 
-/** 每条线路要发多少个包, 与 probe 的 14000ms / 250ms 对齐 —— 波形图靠它决定槽位数。 */
-const SLOTS = 56
+/** 每条线路要发多少个包, 与 probe 的 11000ms / 250ms 对齐 —— 波形图靠它决定槽位数。 */
+const SLOTS = 44
+
+/**
+ * 波形与数字的刷新节拍。
+ *
+ * 采样回调本身绝不能直接 setState: 七条线各自每 250ms 回来一个样本, 就是每秒二十多次
+ * 全量重渲染 (七张波形图各 44 个格子)。主线程一直在 React 里忙, WebSocket 的 message
+ * 事件只能在队列里排队, 而排队时间会被算进往返耗时 —— 测出来的就成了自己的渲染开销。
+ * 所以采样只记账, 渲染按这个固定节拍统一刷。
+ */
+const FLUSH_MS = 150
+
+/**
+ * 重新排序的节拍。
+ *
+ * 比卡片位移动画 (520ms) 慢, 否则上一次还没滑到位就被下一次打断, 看起来是抖不是滑。
+ */
+const REORDER_MS = 900
+
+/** 一条线在测量途中攒下的波形。 */
+interface LiveWave {
+  timeline: (number | undefined)[]
+  probed: number
+}
+
+/** 把记账用的可变对象拷成不可变快照再交给 React, 否则 state 与 ref 指向同一份, 渲染看不到变化。 */
+function snapshotWaves(live: Record<string, LiveWave>): Record<string, LiveWave> {
+  const out: Record<string, LiveWave> = {}
+  for (const [id, wave] of Object.entries(live)) {
+    out[id] = { timeline: wave.timeline.slice(), probed: wave.probed }
+  }
+  return out
+}
+
+function sameOrder(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i])
+}
 
 /** 质量分档。黑白配色下不靠颜色区分, 用文字档位加灰阶深浅表达。 */
 const GRADES = [
@@ -22,29 +66,15 @@ const GRADES = [
 ] as const
 
 function grade(outcome: ProbeOutcome | undefined): string {
-  if (!outcome || outcome.status !== 'ok' || outcome.p50 === null) return '不可用'
+  if (!outcome || outcome.status !== 'ok' || outcome.average === null) return '不可用'
   // 丢包比延迟更致命: 超过 2% 直接压到最低档, 再低的平均延迟也救不回动作丢失的手感
   if (outcome.lossRate > 0.02) return '较差'
-  return (GRADES.find((g) => (outcome.p50 as number) <= g.max) ?? GRADES[3]).label
+  return (GRADES.find((g) => (outcome.average as number) <= g.max) ?? GRADES[3]).label
 }
 
 function ms(value: number | null | undefined): string {
   if (value === null || value === undefined) return '--'
   return value >= 100 ? Math.round(value).toString() : value.toFixed(1)
-}
-
-/**
- * 测量途中的即时读数取已采样本的中位数, 而不是最后一次往返。
- *
- * 单次往返本身就抖, 直接显示会让数字每 250ms 乱跳一次, 既读不出来也没法做翻页动画;
- * 中位数随样本增加平缓收敛, 而且它就是最终要给出的那个指标 —— 玩家看到的数字一路
- * 逼近终值, 不会在结束瞬间突变。
- */
-function runningMedian(wave: (number | undefined)[]): number | null {
-  const values = wave.filter((v): v is number => typeof v === 'number')
-  if (values.length === 0) return null
-  const sorted = [...values].sort((a, b) => a - b)
-  return sorted[Math.floor(sorted.length / 2)]
 }
 
 const CARD =
@@ -88,23 +118,30 @@ export function NetworkCheckPage() {
   const { data, isLoading } = useNetworkNodes()
   const { theme, toggle } = useTheme()
   const [results, setResults] = useState<Record<string, ProbeOutcome>>({})
-  const [waves, setWaves] = useState<Record<string, (number | undefined)[]>>({})
+  const [waves, setWaves] = useState<Record<string, LiveWave>>({})
+  const [order, setOrder] = useState<string[]>([])
   const [phase, setPhase] = useState<Phase>('loading')
   const [elapsed, setElapsed] = useState(0)
   const abortRef = useRef<AbortController | null>(null)
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const flushRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  /** 采样落在这里, 不进 state —— 每个样本触发一次渲染会把测量本身做脏, 见 FLUSH_MS。 */
+  const liveRef = useRef<Record<string, LiveWave>>({})
 
   const nodes = useMemo(() => data?.nodes ?? [], [data?.nodes])
 
   const runProbes = useCallback((targets: NetworkNode[]) => {
     abortRef.current?.abort()
     if (tickRef.current) clearInterval(tickRef.current)
+    if (flushRef.current) clearInterval(flushRef.current)
     if (targets.length === 0) return
 
     const controller = new AbortController()
     abortRef.current = controller
+    liveRef.current = {}
     setResults({})
     setWaves({})
+    setOrder(targets.map((node) => node.id))
     setElapsed(0)
     setPhase('testing')
 
@@ -113,18 +150,22 @@ export function NetworkCheckPage() {
       setElapsed(Math.min(PROBE_TOTAL_MS, performance.now() - startedAt))
     }, 80)
 
+    flushRef.current = setInterval(() => setWaves(snapshotWaves(liveRef.current)), FLUSH_MS)
+
     // 并行测: 探针消息只有几十字节, 几条线同时跑不会互相挤占带宽,
     // 却能把等待从"线路数 x 15 秒"压到一个 15 秒
     Promise.all(
       targets.map(async (node) => {
         const outcome = await probeNode(node.probeUrl, {
           signal: controller.signal,
-          onSample: ({ seq, rtt }) =>
-            setWaves((prev) => {
-              const next = (prev[node.id] ?? []).slice()
-              next[seq] = rtt
-              return { ...prev, [node.id]: next }
-            }),
+          // 只记账, 一行渲染都不做: 这个回调跑在 WebSocket 的 message 事件里,
+          // 在这里多花的每一毫秒都会被算进下一个样本的往返耗时
+          onSample: ({ slot, rtt, probed }) => {
+            const wave = liveRef.current[node.id] ?? { timeline: [], probed: 0 }
+            wave.timeline[slot] = rtt
+            wave.probed = probed
+            liveRef.current[node.id] = wave
+          },
         })
         if (controller.signal.aborted) return
         setResults((prev) => ({ ...prev, [node.id]: outcome }))
@@ -132,6 +173,9 @@ export function NetworkCheckPage() {
     ).finally(() => {
       if (controller.signal.aborted) return
       if (tickRef.current) clearInterval(tickRef.current)
+      if (flushRef.current) clearInterval(flushRef.current)
+      // 补最后一帧: 定时刷新已经停了, 不补的话末尾几个样本永远画不出来
+      setWaves(snapshotWaves(liveRef.current))
       setElapsed(PROBE_TOTAL_MS)
       setPhase('done')
     })
@@ -151,24 +195,75 @@ export function NetworkCheckPage() {
     () => () => {
       abortRef.current?.abort()
       if (tickRef.current) clearInterval(tickRef.current)
+      if (flushRef.current) clearInterval(flushRef.current)
     },
     []
   )
 
-  /** 排序: 抖动权重是延迟的两倍, 丢包再高一档 —— 稳定的 90ms 比在 40 与 120 之间横跳好玩得多。 */
-  const ranked = useMemo(
-    () =>
-      nodes
-        .map((node) => ({ node, outcome: results[node.id] }))
-        .sort((a, b) => {
-          const sa = a.outcome ? score(a.outcome) : Number.POSITIVE_INFINITY
-          const sb = b.outcome ? score(b.outcome) : Number.POSITIVE_INFINITY
-          return sa - sb
-        }),
-    [nodes, results]
-  )
+  /**
+   * 每条线当前的结算: 测完的用最终结果, 还在测的用同口径的即时结算。
+   *
+   * 途中和最终必须是同一套算法, 否则测完那一刻会毫无道理地重排一次。
+   */
+  const measured = useMemo(() => {
+    const map: Record<string, ProbeOutcome | undefined> = {}
+    for (const node of nodes) {
+      const settled = results[node.id]
+      if (settled) {
+        map[node.id] = settled
+        continue
+      }
+      const live = waves[node.id]
+      map[node.id] = live ? summarizeLive(live.timeline, live.probed) ?? undefined : undefined
+    }
+    return map
+  }, [nodes, results, waves])
 
-  const best = phase === 'done' ? ranked.find((r) => r.outcome?.status === 'ok') : undefined
+  const measuredRef = useRef(measured)
+  measuredRef.current = measured
+
+  /** 排序: 抖动权重是延迟的两倍, 丢包再高一档 —— 稳定的 90ms 比在 40 与 120 之间横跳好玩得多。 */
+  const reorder = useCallback(() => {
+    const current = measuredRef.current
+    setOrder((prev) => {
+      const next = [...nodes]
+        .sort((a, b) => {
+          const sa = current[a.id] ? score(current[a.id] as ProbeOutcome) : Number.POSITIVE_INFINITY
+          const sb = current[b.id] ? score(current[b.id] as ProbeOutcome) : Number.POSITIVE_INFINITY
+          return sa - sb
+        })
+        .map((node) => node.id)
+      // 顺序没变就保持原引用: 换了引用会白白触发一次位移动画的计算
+      return sameOrder(prev, next) ? prev : next
+    })
+  }, [nodes])
+
+  // 测量途中按固定节拍重排, 而不是每来一个样本就重排 —— 见 REORDER_MS
+  useEffect(() => {
+    if (phase !== 'testing') return
+    const timer = setInterval(reorder, REORDER_MS)
+    return () => clearInterval(timer)
+  }, [phase, reorder])
+
+  // 结果逐条落地, 每落一条都要把终序再定一次
+  useEffect(() => {
+    if (phase !== 'done') return
+    reorder()
+  }, [phase, measured, reorder])
+
+  const ordered = useMemo(() => {
+    const byId = new Map(nodes.map((node) => [node.id, node]))
+    const sorted = order
+      .map((id) => byId.get(id))
+      .filter((node): node is NetworkNode => node !== undefined)
+    // 排序表里还没有的线路 (刚上线的) 先垫在后面, 下一拍重排时自然归位
+    const rest = nodes.filter((node) => !order.includes(node.id))
+    return [...sorted, ...rest]
+  }, [nodes, order])
+
+  const registerCard = useFlipReorder(order)
+
+  const best = phase === 'done' ? ordered.find((node) => results[node.id]?.status === 'ok') : undefined
   const progress = (elapsed / PROBE_TOTAL_MS) * 100
   const remaining = Math.max(0, Math.ceil((PROBE_TOTAL_MS - elapsed) / 1000))
 
@@ -214,7 +309,10 @@ export function NetworkCheckPage() {
                     <span className="absolute inline-flex size-full animate-ping rounded-full bg-foreground/40" />
                     <span className="relative inline-flex size-2 rounded-full bg-foreground/70" />
                   </span>
-                  正在测试 {nodes.length} 条线路
+                  {/* 预热那几秒一个样本都没有, 不点破的话页面看起来是卡住了 */}
+                  {elapsed < PROBE_WARMUP_MS
+                    ? '正在建立连接…'
+                    : `正在测试 ${nodes.length} 条线路`}
                 </span>
               )}
               {phase === 'done' && '测试完成'}
@@ -242,30 +340,32 @@ export function NetworkCheckPage() {
             )}
           >
             <div className="text-[11px] uppercase tracking-[0.2em] opacity-55">推荐线路</div>
-            <div className="mt-2 text-xl font-semibold">{best.node.name}</div>
+            <div className="mt-2 text-xl font-semibold">{best.name}</div>
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <code className="font-mono text-sm opacity-90">{best.node.endpoint}</code>
-              <CopyButton text={best.node.endpoint} tone="invert" />
+              <code className="font-mono text-sm opacity-90">{best.endpoint}</code>
+              <CopyButton text={best.endpoint} tone="invert" />
             </div>
             <dl className="mt-6 grid grid-cols-3 gap-4 border-t border-current/15 pt-5">
               <div>
                 <dt className="text-[11px] uppercase tracking-wider opacity-55">延迟</dt>
                 <dd className="mt-1.5 font-mono text-2xl leading-none">
-                  <RollingNumber value={ms(best.outcome!.p50)} />
+                  <RollingNumber value={ms(results[best.id]?.average)} />
                   <span className="ml-1 text-sm opacity-55">ms</span>
                 </dd>
               </div>
               <div>
                 <dt className="text-[11px] uppercase tracking-wider opacity-55">丢包</dt>
                 <dd className="mt-1.5 font-mono text-2xl leading-none">
-                  <RollingNumber value={Math.round(best.outcome!.lossRate * 100).toString()} />
+                  <RollingNumber
+                    value={Math.round((results[best.id]?.lossRate ?? 0) * 100).toString()}
+                  />
                   <span className="ml-1 text-sm opacity-55">%</span>
                 </dd>
               </div>
               <div>
                 <dt className="text-[11px] uppercase tracking-wider opacity-55">抖动</dt>
                 <dd className="mt-1.5 font-mono text-2xl leading-none">
-                  <RollingNumber value={ms(best.outcome!.jitter)} />
+                  <RollingNumber value={ms(results[best.id]?.jitter)} />
                   <span className="ml-1 text-sm opacity-55">ms</span>
                 </dd>
               </div>
@@ -299,16 +399,24 @@ export function NetworkCheckPage() {
           )}
 
           <div className="space-y-3">
-            {ranked.map(({ node, outcome }, i) => {
-              const wave = waves[node.id] ?? []
-              const value = outcome?.p50 ?? runningMedian(wave)
-              const isBest = best?.node.id === node.id
+            {ordered.map((node, i) => {
+              const outcome = measured[node.id]
+              const settled = results[node.id]
+              const live = waves[node.id]
+              // 测完以结算结果为准, 与丢包率同源; 测量途中才用实时波形
+              const timeline = settled?.timeline ?? live?.timeline ?? []
+              const probed = settled?.probed ?? live?.probed ?? 0
+              const isBest = best?.id === node.id
               return (
                 <article
                   key={node.id}
+                  ref={registerCard(node.id)}
                   className={cn(
                     CARD,
-                    'px-5 py-4 transition-all duration-500',
+                    'px-5 py-4',
+                    // 只让描边过渡, 不写 transition-all: 卡片换位由 useFlipReorder 用 transform 驱动,
+                    // 让 CSS transition 也去插值 transform 会和它抢同一个属性
+                    'transition-[box-shadow,border-color] duration-500',
                     isBest && 'ring-1 ring-foreground/20',
                     'animate-in fade-in slide-in-from-bottom-2'
                   )}
@@ -330,18 +438,21 @@ export function NetworkCheckPage() {
                       <span className="font-mono text-xl leading-none">
                         {/* 测量途中缩短滚动时长: 采样间隔 250ms, 用终值那套 620ms 会让上一次还没
                             滚完下一个值就来了, 数字一直悬在中间读不出来 */}
-                        <RollingNumber value={ms(value)} duration={phase === 'done' ? 620 : 260} />
+                        <RollingNumber
+                          value={ms(outcome?.average)}
+                          duration={phase === 'done' ? 620 : 260}
+                        />
                       </span>
                       <span className="text-xs text-muted-foreground">ms</span>
                     </div>
                   </div>
 
                   <div className="mt-3">
-                    <LatencySparkline samples={wave} slots={SLOTS} />
+                    <LatencySparkline samples={timeline} probed={probed} slots={SLOTS} />
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground">
-                    <span>{phase === 'testing' && !outcome ? '测试中…' : grade(outcome)}</span>
+                    <span>{phase === 'testing' && !settled ? '测试中…' : grade(outcome)}</span>
                     <span className="font-mono tabular-nums">
                       丢包 {outcome?.status === 'ok' ? `${Math.round(outcome.lossRate * 100)}%` : '--'}
                     </span>
@@ -350,10 +461,15 @@ export function NetworkCheckPage() {
                     <span className="font-mono">{node.endpoint}</span>
                   </div>
 
-                  {outcome?.status === 'unreachable' && (
-                    <p className="mt-2 text-xs text-muted-foreground">连接失败：{outcome.error}</p>
+                  {settled?.truncated && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      连接中途断开，以上只是断开前那一段的结果，不代表整条线路。
+                    </p>
                   )}
-                  {outcome?.status === 'skipped' && (
+                  {settled?.status === 'unreachable' && (
+                    <p className="mt-2 text-xs text-muted-foreground">连接失败：{settled.error}</p>
+                  )}
+                  {settled?.status === 'skipped' && (
                     <p className="mt-2 text-xs text-muted-foreground">这条线路未开放测速</p>
                   )}
                 </article>
