@@ -13,6 +13,8 @@ import type {
   UpdatePackDraftRequest,
 } from '@/types/modpack'
 
+const PACK_UPLOAD_TIMEOUT_MS = 20 * 60 * 1000
+
 function responseErrorMessage(body: unknown): string | undefined {
   if (body == null || typeof body !== 'object') return undefined
 
@@ -138,6 +140,7 @@ export const modpackApi = {
     return executeWithData(
       api.post<PackApiResponse<PackEntry>>(`/v1/pack/versions/${versionId}/upload`, form, {
         headers: { 'Content-Type': undefined },
+        timeout: PACK_UPLOAD_TIMEOUT_MS,
         onUploadProgress: onProgress ? (event) => onProgress(toUploadProgress(event)) : undefined,
       }),
       '上传整合包文件失败',
