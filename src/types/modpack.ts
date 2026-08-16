@@ -1,5 +1,7 @@
 export type PackVersionStatus = 'draft' | 'published' | 'archived'
 
+export type PackLoaderKind = 'fabric' | 'quilt' | 'forge' | 'neoforge'
+
 export type PackEntryKind = 'platform' | 'custom'
 
 export type PackEntryPolicy = 'managed' | 'seeded' | 'optional'
@@ -11,7 +13,7 @@ export interface PackVersion {
   version: string
   status: PackVersionStatus
   minecraft: string
-  loaderKind: string
+  loaderKind: PackLoaderKind
   loaderVersion: string
   note: string | null
   createdAt: number
@@ -49,7 +51,7 @@ export type PackEntry = PlatformPackEntry | CustomPackEntry
 export interface CreateEmptyPackDraftRequest {
   version: string
   minecraft: string
-  loaderKind: string
+  loaderKind: PackLoaderKind
   loaderVersion: string
   note?: string | null
   copyFromVersionId?: never
@@ -69,7 +71,7 @@ export type CreatePackDraftRequest = CreateEmptyPackDraftRequest | CopyPackDraft
 export interface UpdatePackDraftRequest {
   version: string
   minecraft: string
-  loaderKind: string
+  loaderKind: PackLoaderKind
   loaderVersion: string
   note: string | null
 }
@@ -107,11 +109,17 @@ export interface PackEntryChange {
 }
 
 export interface PackVersionDiff {
+  revision: string
   publishedVersion: PackVersion | null
   targetVersion: PackVersion
   added: PackEntry[]
   changed: PackEntryChange[]
   removed: PackEntry[]
+}
+
+export interface ConfirmPackVersionRequest {
+  confirmRemovals: boolean
+  expectedDiffRevision: string
 }
 
 export interface PackUploadRequest {

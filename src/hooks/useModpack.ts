@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { reconcileReleasedPackVersion } from '@/hooks/modpack-version-cache'
 import { modpackApi } from '@/services/modpack'
 import { modrinthApi } from '@/services/modrinth'
 import type {
+  ConfirmPackVersionRequest,
   CreatePackDraftRequest,
   ListModrinthVersionsParams,
   PackEntryRequest,
   PackUploadProgress,
   PackUploadRequest,
+  PackVersion,
   SearchModrinthProjectsParams,
   UpdatePackDraftRequest,
 } from '@/types/modpack'
@@ -172,23 +175,28 @@ export function useUploadPackFile() {
   })
 }
 
-export interface ConfirmPackVersionMutation {
+export interface ConfirmPackVersionMutation extends ConfirmPackVersionRequest {
   versionId: number
-  confirmRemovals: boolean
 }
 
 export function usePublishPackVersion() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ versionId, confirmRemovals }: ConfirmPackVersionMutation) =>
-      modpackApi.publish(versionId, confirmRemovals),
-    onSuccess: () => {
+    mutationFn: ({ versionId, confirmRemovals, expectedDiffRevision }: ConfirmPackVersionMutation) =>
+      modpackApi.publish(versionId, { confirmRemovals, expectedDiffRevision }),
+    onSuccess: (released) => {
+      queryClient.setQueryData<PackVersion[]>(modpackKeys.versions(), (cached) =>
+        reconcileReleasedPackVersion(cached, released),
+      )
       toast.success('整合包版本已发布')
       void queryClient.invalidateQueries({ queryKey: modpackKeys.versions() })
       void queryClient.invalidateQueries({ queryKey: modpackKeys.diffs() })
     },
-    onError: (error: Error) => showMutationError(error, '发布整合包版本失败'),
+    onError: (error: Error, variables) => {
+      showMutationError(error, '发布整合包版本失败')
+      void queryClient.invalidateQueries({ queryKey: modpackKeys.diff(variables.versionId) })
+    },
   })
 }
 
@@ -196,14 +204,20 @@ export function useRollbackPackVersion() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ versionId, confirmRemovals }: ConfirmPackVersionMutation) =>
-      modpackApi.rollback(versionId, confirmRemovals),
-    onSuccess: () => {
+    mutationFn: ({ versionId, confirmRemovals, expectedDiffRevision }: ConfirmPackVersionMutation) =>
+      modpackApi.rollback(versionId, { confirmRemovals, expectedDiffRevision }),
+    onSuccess: (released) => {
+      queryClient.setQueryData<PackVersion[]>(modpackKeys.versions(), (cached) =>
+        reconcileReleasedPackVersion(cached, released),
+      )
       toast.success('整合包版本已回滚')
       void queryClient.invalidateQueries({ queryKey: modpackKeys.versions() })
       void queryClient.invalidateQueries({ queryKey: modpackKeys.diffs() })
     },
-    onError: (error: Error) => showMutationError(error, '回滚整合包版本失败'),
+    onError: (error: Error, variables) => {
+      showMutationError(error, '回滚整合包版本失败')
+      void queryClient.invalidateQueries({ queryKey: modpackKeys.diff(variables.versionId) })
+    },
   })
 }
 

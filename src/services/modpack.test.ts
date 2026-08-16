@@ -77,3 +77,70 @@ describe('modpackApi.uploadFile', () => {
     })
   })
 })
+
+describe('modpackApi release confirmation', () => {
+  const publishedVersion = {
+    id: 7,
+    version: '2.1.0',
+    status: 'published' as const,
+    minecraft: '1.20.1',
+    loaderKind: 'forge',
+    loaderVersion: '47.4.20',
+    note: null,
+    createdAt: 1_776_614_400,
+    publishedAt: 1_776_614_500,
+  }
+
+  beforeEach(() => {
+    mockedPost.mockResolvedValue({
+      data: {
+        success: true,
+        code: 200,
+        timestamp: '2026-08-17T12:00:00Z',
+        data: publishedVersion,
+      },
+    })
+  })
+
+  it.each(['publish', 'rollback'] as const)(
+    '为 %s 发送精确的确定性确认请求体',
+    async (action) => {
+      const request = action === 'publish' ? modpackApi.publish : modpackApi.rollback
+
+      await request(7, {
+        confirmRemovals: true,
+        expectedDiffRevision: 'a'.repeat(64),
+      })
+
+      expect(mockedPost).toHaveBeenCalledTimes(1)
+      expect(mockedPost).toHaveBeenCalledWith(`/v1/pack/versions/7/${action}`, {
+        confirmRemovals: true,
+        expectedDiffRevision: 'a'.repeat(64),
+      })
+    },
+  )
+
+  it('原样冒泡过期 revision 的 409 可操作消息', async () => {
+    mockedPost.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: {
+          success: false,
+          code: 409,
+          timestamp: '2026-08-17T12:00:00Z',
+          error: {
+            message: '整合包差异已变化，请重新获取并审阅后再发布',
+          },
+        },
+      },
+    })
+
+    await expect(
+      modpackApi.publish(7, {
+        confirmRemovals: false,
+        expectedDiffRevision: 'b'.repeat(64),
+      }),
+    ).rejects.toThrow('整合包差异已变化，请重新获取并审阅后再发布')
+  })
+})

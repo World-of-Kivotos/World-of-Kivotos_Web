@@ -2,6 +2,7 @@ import { isAxiosError } from 'axios'
 import type { AxiosProgressEvent, AxiosResponse } from 'axios'
 import api from '@/lib/axios'
 import type {
+  ConfirmPackVersionRequest,
   CreatePackDraftRequest,
   PackApiResponse,
   PackEntry,
@@ -154,20 +155,16 @@ export const modpackApi = {
     )
   },
 
-  async publish(versionId: number, confirmRemovals: boolean): Promise<PackVersion> {
+  async publish(versionId: number, data: ConfirmPackVersionRequest): Promise<PackVersion> {
     return executeWithData(
-      api.post<PackApiResponse<PackVersion>>(`/v1/pack/versions/${versionId}/publish`, {
-        confirmRemovals,
-      }),
+      api.post<PackApiResponse<PackVersion>>(`/v1/pack/versions/${versionId}/publish`, data),
       '发布整合包版本失败',
     )
   },
 
-  async rollback(versionId: number, confirmRemovals: boolean): Promise<PackVersion> {
+  async rollback(versionId: number, data: ConfirmPackVersionRequest): Promise<PackVersion> {
     return executeWithData(
-      api.post<PackApiResponse<PackVersion>>(`/v1/pack/versions/${versionId}/rollback`, {
-        confirmRemovals,
-      }),
+      api.post<PackApiResponse<PackVersion>>(`/v1/pack/versions/${versionId}/rollback`, data),
       '回滚整合包版本失败',
     )
   },

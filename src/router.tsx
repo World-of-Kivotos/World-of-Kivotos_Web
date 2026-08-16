@@ -17,6 +17,7 @@ import { LogsPage } from '@/pages/LogsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { SurveyPage } from '@/pages/SurveyPage'
 import { ReviewPage } from '@/pages/ReviewPage'
+import { ModpackPage } from '@/pages/ModpackPage'
 import { Toaster } from '@/components/ui/sonner'
 import { useAuthStore } from '@/stores/auth'
 
@@ -89,6 +90,11 @@ const playersRoute = createRoute({
   path: '/players',
   component: PlayersPage,
 })
+const modpackRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/modpack',
+  component: ModpackPage,
+})
 const surveyRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/survey',
@@ -131,6 +137,7 @@ const routeTree = rootRoute.addChildren([
     whitelistRoute,
     monitorRoute,
     playersRoute,
+    modpackRoute,
     surveyRoute,
     formsRoute,
     reviewRoute,

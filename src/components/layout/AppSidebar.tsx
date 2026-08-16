@@ -8,6 +8,7 @@ import {
   ClipboardCheck,
   FileCheck,
   FileStack,
+  PackageOpen,
   ScrollText,
   Settings,
   type LucideIcon,
@@ -19,6 +20,7 @@ type AppPath =
   | '/whitelist'
   | '/monitor'
   | '/players'
+  | '/modpack'
   | '/survey'
   | '/forms'
   | '/review'
@@ -37,6 +39,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/whitelist', label: '白名单', icon: ShieldCheck },
   { to: '/monitor', label: '服务器监控', icon: Activity },
   { to: '/players', label: '在线玩家', icon: Users },
+  { to: '/modpack', label: '整合包管理', icon: PackageOpen },
   { to: '/survey', label: '问卷管理', icon: ClipboardList },
   { to: '/forms', label: '其他问卷', icon: FileStack },
   { to: '/review', label: '问卷审核', icon: ClipboardCheck },
