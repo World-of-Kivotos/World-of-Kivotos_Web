@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Plus, Search, RefreshCw, Trash2, Copy } from 'lucide-react'
+import { Plus, Search, RefreshCw, Trash2, Copy, KeyRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import {
   useWhitelist, useAddWhitelist, useDeleteWhitelist,
-  useSetWhitelistActive, useBatchOperation,
+  useSetWhitelistActive, useBatchOperation, useResetPlayerAuth,
 } from '@/hooks/useWhitelist'
 import type { WhitelistEntry, AddWhitelistResult } from '@/types/whitelist'
 
@@ -65,6 +65,7 @@ export function WhitelistPage() {
   const del = useDeleteWhitelist()
   const setActive = useSetWhitelistActive()
   const batch = useBatchOperation()
+  const resetAuth = useResetPlayerAuth()
 
   const data = list.data
   const items = data?.items ?? []
@@ -270,6 +271,38 @@ export function WhitelistPage() {
                             onCheckedChange={(v) => setActive.mutate({ name: entry.name, isActive: v })}
                             aria-label={entry.isActive ? `禁用 ${entry.name}` : `启用 ${entry.name}`}
                           />
+                          {/* 重置密码与免密: 清认证记录 + 吊销设备绑定, 白名单资格不受影响。
+                              只禁用正在重置的那一行 —— mutation 实例为整表共用, 按 isPending 一刀切会锁住所有行 */}
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost" size="icon"
+                                className="text-muted-foreground hover:text-foreground"
+                                disabled={resetAuth.isPending && resetAuth.variables === entry.name}
+                                aria-label={`重置 ${entry.name} 的密码与免密`}
+                              >
+                                <KeyRound />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>重置密码与免密</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  确定重置 <span className="font-medium text-foreground">{entry.name}</span> 的登录凭据?
+                                  该玩家的密码记录将被清除, 已登记的免密设备将被吊销 —— 需重新
+                                  <code className="mx-1 rounded bg-muted px-1">/register</code>设置密码,
+                                  并重新<code className="mx-1 rounded bg-muted px-1">/enroll</code>才能恢复免密登录。
+                                  白名单资格不受影响; 若该玩家在线, 会被原地冻结并提示重新注册。
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>取消</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => resetAuth.mutate(entry.name)}>
+                                  重置
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" aria-label="删除">

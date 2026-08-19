@@ -97,6 +97,28 @@ export function useSetWhitelistActive() {
 }
 
 /**
+ * 重置某玩家的密码与免密状态。
+ *
+ * 不失效白名单查询: 重置只动 player_auth 与 device_keys 两张表, 白名单条目与 is_active
+ * 均未改变, 列表也不展示认证状态, 刷了纯属多余请求。
+ */
+export function useResetPlayerAuth() {
+  return useMutation({
+    mutationFn: (name: string) => whitelistApi.resetAuth(name),
+    onSuccess: (result) => {
+      toast.success(
+        result.device_revoked
+          ? `已重置 ${result.name} 的密码与免密登记`
+          : `已重置 ${result.name} 的密码 (该玩家未登记免密)`
+      )
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || '重置失败')
+    },
+  })
+}
+
+/**
  * 批量操作白名单
  */
 export function useBatchOperation() {

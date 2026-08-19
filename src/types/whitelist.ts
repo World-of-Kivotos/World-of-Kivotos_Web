@@ -104,6 +104,16 @@ export interface AddWhitelistResult {
 }
 
 /**
+ * 重置玩家认证的结果。两个字段分别表示本次实际清掉了什么:
+ * 玩家从未登记过免密时 device_revoked 为 false, 属正常情况而非失败。
+ */
+export interface ResetAuthResult {
+  name: string
+  password_cleared: boolean
+  device_revoked: boolean
+}
+
+/**
  * 批量操作请求
  */
 export interface BatchOperationRequest {

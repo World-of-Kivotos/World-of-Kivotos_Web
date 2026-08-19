@@ -9,6 +9,7 @@ import type {
   AddWhitelistResult,
   BatchOperationRequest,
   BatchOperationResponse,
+  ResetAuthResult,
   WhitelistSource,
 } from '@/types/whitelist'
 
@@ -100,6 +101,22 @@ export const whitelistApi = {
     if (!response.data.success) {
       throw new Error(response.data.error?.message || '设置启用状态失败')
     }
+  },
+
+  /**
+   * 重置玩家的密码与免密状态: 清除密码记录并吊销已登记的设备免密绑定。
+   * 玩家须重新 /register 设置密码, 并重新 /enroll 才能恢复免密登录。白名单条目本身不受影响。
+   * 走 POST 而非 DELETE: 后端 DELETE 路由按前缀截取玩家名, 会把子路径一起吞掉。
+   */
+  async resetAuth(name: string): Promise<ResetAuthResult> {
+    const response = await api.post<ApiResponse<ResetAuthResult>>(
+      `/v1/whitelist/by-name/${encodeURIComponent(name)}/reset-auth`
+    )
+
+    if (response.data.success && response.data.data) {
+      return response.data.data
+    }
+    throw new Error(response.data.error?.message || '重置认证失败')
   },
 
   /**
