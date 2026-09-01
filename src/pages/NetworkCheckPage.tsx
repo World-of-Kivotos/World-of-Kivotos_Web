@@ -38,6 +38,15 @@ const FLUSH_MS = 150
  */
 const REORDER_MS = 900
 
+/**
+ * 暂时下线的线路。
+ *
+ * 上海节点的 frp 隧道于 2026-09-01 停用, 但线路仍留在服务端的 network 配置里 —— 照常
+ * 探测只会得到一条测不通的线, 玩家分不清是自己的网络坏了还是服务器没了。挂在这里的线路
+ * 不发探测包, 卡片灰显并直说暂时下线。节点恢复后把 id 从这里删掉即可, 不必改动别处。
+ */
+const OFFLINE_NODE_IDS: ReadonlySet<string> = new Set(['shanghai'])
+
 /** 一条线在测量途中攒下的波形。 */
 interface LiveWave {
   timeline: (number | undefined)[]
@@ -129,6 +138,8 @@ export function NetworkCheckPage() {
   const liveRef = useRef<Record<string, LiveWave>>({})
 
   const nodes = useMemo(() => data?.nodes ?? [], [data?.nodes])
+  /** 真正要发包的线路。下线的线路仍要出现在列表里, 但不参与测量。 */
+  const probeTargets = useMemo(() => nodes.filter((node) => !OFFLINE_NODE_IDS.has(node.id)), [nodes])
 
   const runProbes = useCallback((targets: NetworkNode[]) => {
     abortRef.current?.abort()
@@ -183,11 +194,14 @@ export function NetworkCheckPage() {
 
   // 只在线路定义本身变化时自动开测。人数轮询每 15 秒返回一次新数组,
   // 若直接依赖 nodes 会没完没了地重测。
-  const signature = useMemo(() => nodes.map((n) => `${n.id}:${n.probeUrl}`).join('|'), [nodes])
+  const signature = useMemo(
+    () => probeTargets.map((n) => `${n.id}:${n.probeUrl}`).join('|'),
+    [probeTargets]
+  )
 
   useEffect(() => {
     if (!signature) return
-    runProbes(nodes)
+    runProbes(probeTargets)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature, runProbes])
 
@@ -228,6 +242,9 @@ export function NetworkCheckPage() {
     setOrder((prev) => {
       const next = [...nodes]
         .sort((a, b) => {
+          // 下线的线路没有测量结果, 与"测不通"同为无穷分, 显式压到最后免得两者混排
+          const offline = Number(OFFLINE_NODE_IDS.has(a.id)) - Number(OFFLINE_NODE_IDS.has(b.id))
+          if (offline !== 0) return offline
           const sa = current[a.id] ? score(current[a.id] as ProbeOutcome) : Number.POSITIVE_INFINITY
           const sb = current[b.id] ? score(current[b.id] as ProbeOutcome) : Number.POSITIVE_INFINITY
           return sa - sb
@@ -312,7 +329,7 @@ export function NetworkCheckPage() {
                   {/* 预热那几秒一个样本都没有, 不点破的话页面看起来是卡住了 */}
                   {elapsed < PROBE_WARMUP_MS
                     ? '正在建立连接…'
-                    : `正在测试 ${nodes.length} 条线路`}
+                    : `正在测试 ${probeTargets.length} 条线路`}
                 </span>
               )}
               {phase === 'done' && '测试完成'}
@@ -380,7 +397,7 @@ export function NetworkCheckPage() {
             {phase === 'done' && (
               <button
                 type="button"
-                onClick={() => runProbes(nodes)}
+                onClick={() => runProbes(probeTargets)}
                 className={cn(
                   CARD,
                   'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-all duration-200 hover:scale-[1.03] active:scale-95'
@@ -407,6 +424,7 @@ export function NetworkCheckPage() {
               const timeline = settled?.timeline ?? live?.timeline ?? []
               const probed = settled?.probed ?? live?.probed ?? 0
               const isBest = best?.id === node.id
+              const offline = OFFLINE_NODE_IDS.has(node.id)
               return (
                 <article
                   key={node.id}
@@ -418,6 +436,8 @@ export function NetworkCheckPage() {
                     // 让 CSS transition 也去插值 transform 会和它抢同一个属性
                     'transition-[box-shadow,border-color] duration-500',
                     isBest && 'ring-1 ring-foreground/20',
+                    // 灰显而不是移除: 玩家要能看出这条线还在, 只是暂时进不去
+                    offline && 'opacity-50',
                     'animate-in fade-in slide-in-from-bottom-2'
                   )}
                   style={{ animationDelay: `${i * 60}ms`, animationFillMode: 'backwards' }}
@@ -430,47 +450,71 @@ export function NetworkCheckPage() {
                           最佳
                         </span>
                       )}
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {node.online} 人在线
-                      </span>
+                      {offline && (
+                        <span className="shrink-0 rounded-md border border-foreground/20 px-1.5 py-0.5 text-[10px] tracking-wide">
+                          暂时下线
+                        </span>
+                      )}
+                      {/* 下线线路的人数恒为 0, 照报只会让人以为是没人玩 */}
+                      {!offline && (
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {node.online} 人在线
+                        </span>
+                      )}
                     </div>
-                    <div className="flex shrink-0 items-baseline gap-1">
-                      <span className="font-mono text-xl leading-none">
-                        {/* 测量途中缩短滚动时长: 采样间隔 250ms, 用终值那套 620ms 会让上一次还没
-                            滚完下一个值就来了, 数字一直悬在中间读不出来 */}
-                        <RollingNumber
-                          value={ms(outcome?.average)}
-                          duration={phase === 'done' ? 620 : 260}
-                        />
-                      </span>
-                      <span className="text-xs text-muted-foreground">ms</span>
-                    </div>
+                    {!offline && (
+                      <div className="flex shrink-0 items-baseline gap-1">
+                        <span className="font-mono text-xl leading-none">
+                          {/* 测量途中缩短滚动时长: 采样间隔 250ms, 用终值那套 620ms 会让上一次还没
+                              滚完下一个值就来了, 数字一直悬在中间读不出来 */}
+                          <RollingNumber
+                            value={ms(outcome?.average)}
+                            duration={phase === 'done' ? 620 : 260}
+                          />
+                        </span>
+                        <span className="text-xs text-muted-foreground">ms</span>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="mt-3">
-                    <LatencySparkline samples={timeline} probed={probed} slots={SLOTS} />
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground">
-                    <span>{phase === 'testing' && !settled ? '测试中…' : grade(outcome)}</span>
-                    <span className="font-mono tabular-nums">
-                      丢包 {outcome?.status === 'ok' ? `${Math.round(outcome.lossRate * 100)}%` : '--'}
-                    </span>
-                    <span className="font-mono tabular-nums">抖动 {ms(outcome?.jitter)} ms</span>
-                    <span className="font-mono tabular-nums">峰值 {ms(outcome?.p95)} ms</span>
-                    <span className="font-mono">{node.endpoint}</span>
-                  </div>
-
-                  {settled?.truncated && (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      连接中途断开，以上只是断开前那一段的结果，不代表整条线路。
+                  {offline ? (
+                    // 没有采样就不画波形: 44 个空槽跟 100% 丢包长得一模一样
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      这条线路暂时下线，请改用其他线路，进哪条都是同一个世界。
                     </p>
-                  )}
-                  {settled?.status === 'unreachable' && (
-                    <p className="mt-2 text-xs text-muted-foreground">连接失败：{settled.error}</p>
-                  )}
-                  {settled?.status === 'skipped' && (
-                    <p className="mt-2 text-xs text-muted-foreground">这条线路未开放测速</p>
+                  ) : (
+                    <>
+                      <div className="mt-3">
+                        <LatencySparkline samples={timeline} probed={probed} slots={SLOTS} />
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground">
+                        <span>{phase === 'testing' && !settled ? '测试中…' : grade(outcome)}</span>
+                        <span className="font-mono tabular-nums">
+                          丢包{' '}
+                          {outcome?.status === 'ok'
+                            ? `${Math.round(outcome.lossRate * 100)}%`
+                            : '--'}
+                        </span>
+                        <span className="font-mono tabular-nums">抖动 {ms(outcome?.jitter)} ms</span>
+                        <span className="font-mono tabular-nums">峰值 {ms(outcome?.p95)} ms</span>
+                        <span className="font-mono">{node.endpoint}</span>
+                      </div>
+
+                      {settled?.truncated && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          连接中途断开，以上只是断开前那一段的结果，不代表整条线路。
+                        </p>
+                      )}
+                      {settled?.status === 'unreachable' && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          连接失败：{settled.error}
+                        </p>
+                      )}
+                      {settled?.status === 'skipped' && (
+                        <p className="mt-2 text-xs text-muted-foreground">这条线路未开放测速</p>
+                      )}
+                    </>
                   )}
                 </article>
               )
