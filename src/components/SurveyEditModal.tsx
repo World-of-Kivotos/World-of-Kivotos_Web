@@ -11,6 +11,7 @@ import {
   Calendar,
   Star,
   Image as ImageIcon,
+  Paperclip,
   GripVertical,
   Copy,
   Trash2,
@@ -155,6 +156,7 @@ const QUESTION_TYPES: {
   { value: 'date', label: '日期题', icon: Calendar, description: '选择一个日期' },
   { value: 'rating', label: '评分题', icon: Star, description: '按星级打分' },
   { value: 'image', label: '图片题', icon: ImageIcon, description: '上传图片' },
+  { value: 'file', label: '文件题', icon: Paperclip, description: '上传模型包 / 存档等附件' },
   { value: 'section', label: '分节说明', icon: Heading, description: '只显示标题与说明, 不收答案' },
 ]
 
@@ -201,6 +203,8 @@ const OPERATORS_BY_TYPE: Record<QuestionType, ConditionOperator[]> = {
   date: ['eq', 'neq', 'answered', 'not_answered'],
   rating: ['gt', 'lt', 'eq', 'neq', 'answered', 'not_answered'],
   image: [],
+  // 文件题同图片题: 后端 condition_source=False, 存储路径拿来做分支只会误判
+  file: [],
   // 分节说明块没有答案可比, 不能当条件依赖题 (候选表按运算符非空过滤, 空数组即排除)
   section: [],
 }
@@ -285,6 +289,8 @@ function defaultValidationFor(type: QuestionType): QuestionValidation | undefine
       return { max_length: 50 }
     case 'image':
       return { max_images: 3 }
+    case 'file':
+      return { max_files: 1 }
     case 'rating':
       return { max_rating: 5 }
     default:
@@ -642,6 +648,64 @@ function ImageValidationEditor({ validation, onChange }: ValidationEditorProps) 
           className="w-16 text-center"
         />
         <span className="text-sm text-muted-foreground">张图片</span>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 文件题限制编辑器。
+ *
+ * 扩展名白名单用本地字符串状态承接输入: 直接把输入框绑到 string[] 上, 每敲一个字符就
+ * 拆分归一化再拼回去, 光标与半截输入 (刚敲下的 ".") 会被改写, 根本没法正常打字。
+ */
+function FileValidationEditor({ validation, onChange }: ValidationEditorProps) {
+  const [rawExtensions, setRawExtensions] = useState(() =>
+    (validation.allowed_extensions ?? []).join(', '),
+  )
+
+  // 归一化为小写带点; 空输入落 undefined 表示不限 (只受站点级白名单约束)
+  const parseExtensions = (raw: string): string[] | undefined => {
+    const items = raw
+      .split(/[,，\s]+/)
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean)
+      .map((item) => (item.startsWith('.') ? item : `.${item}`))
+    return items.length > 0 ? items : undefined
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="mb-2 block">附件数量</Label>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">最多上传</span>
+          <Input
+            type="number"
+            min={1}
+            max={9}
+            value={validation.max_files ?? 3}
+            onChange={(e) => onChange({ ...validation, max_files: parseInt(e.target.value) || 3 })}
+            className="w-16 text-center"
+          />
+          <span className="text-sm text-muted-foreground">个文件</span>
+        </div>
+      </div>
+
+      <div>
+        <Label className="mb-2 block">允许的扩展名</Label>
+        <Input
+          value={rawExtensions}
+          placeholder=".ysm, .zip"
+          onChange={(e) => {
+            setRawExtensions(e.target.value)
+            onChange({ ...validation, allowed_extensions: parseExtensions(e.target.value) })
+          }}
+        />
+        <p className="mt-2 text-xs text-muted-foreground">
+          逗号分隔，留空表示只受站点级白名单约束。站点白名单在问卷后端 config.yml 的
+          upload.allowed_file_extensions 里配，这里只能收窄、不能放宽。
+        </p>
       </div>
     </div>
   )
@@ -1276,6 +1340,13 @@ function SortableQuestionCard({
 
             {question.type === 'image' && (
               <ImageValidationEditor
+                validation={question.validation || {}}
+                onChange={(validation) => onUpdate({ ...question, validation })}
+              />
+            )}
+
+            {question.type === 'file' && (
+              <FileValidationEditor
                 validation={question.validation || {}}
                 onChange={(validation) => onUpdate({ ...question, validation })}
               />

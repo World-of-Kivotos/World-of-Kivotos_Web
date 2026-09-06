@@ -74,6 +74,8 @@ export interface QuestionValidation {
   min_length?: number
   max_length?: number
   max_images?: number
+  max_files?: number            // file 题最多附件数, 缺省 3
+  allowed_extensions?: string[] // file 题允许的扩展名 (小写带点, 如 [".ysm"])
   min_value?: number   // number 题的取值下限 (闭区间)
   max_value?: number
   max_rating?: number  // rating 题的满分, 缺省 5
@@ -133,6 +135,7 @@ export type QuestionType =
   | 'date'
   | 'rating'
   | 'image'
+  | 'file'
   // 分节说明块: 只渲染标题与说明, 不收答案 (后端 QUESTION_TYPES 里 answerable=false)
   | 'section'
 

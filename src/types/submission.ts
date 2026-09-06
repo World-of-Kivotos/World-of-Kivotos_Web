@@ -15,7 +15,8 @@ export interface QuestionOption {
 
 /**
  * 答案内容: 后端按题型存为对象 — single/select/boolean/number/date/rating: {value},
- * multiple: {values}, text/short_text: {text}, image: {images}。保留扁平标量以兼容历史数据。
+ * multiple: {values}, text/short_text: {text}, image: {images}, file: {files}。
+ * 保留扁平标量以兼容历史数据。
  */
 export type AnswerContent =
   | {
@@ -24,10 +25,20 @@ export type AnswerContent =
       values?: string[]
       text?: string
       images?: string[]
+      files?: UploadedAttachment[]
     }
   | string
   | string[]
   | boolean
+
+/**
+ * 文件题的一条附件。原始文件名随答案一起存 —— 落盘名是 uuid, 审核时只看存储名等于什么都看不出来。
+ */
+export interface UploadedAttachment {
+  url: string   // /uploads/xxx.ysm
+  name: string  // 玩家上传时的原始文件名
+  size: number  // 字节
+}
 
 /**
  * 提交答案

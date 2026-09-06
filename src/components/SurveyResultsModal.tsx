@@ -8,6 +8,8 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { useSubmissions, useSubmissionDetail } from '@/hooks/useSubmission'
 import { useSurveyAnalytics } from '@/hooks/useSurvey'
 import { submissionApi, surveyImageUrl } from '@/services/survey'
+import { answerAttachments } from '@/lib/attachments'
+import { AttachmentList } from '@/components/AttachmentList'
 import type { SubmissionAnswer, QuestionOption } from '@/types/submission'
 import type { AnalyticsDailyPoint, AnalyticsQuestion, QuestionType, SurveyAnalytics } from '@/types/survey'
 import { toast } from 'sonner'
@@ -32,7 +34,8 @@ function optionLabel(value: string, options?: QuestionOption[] | null): string {
   return options?.find((o) => o.value === value)?.label ?? value
 }
 
-// 答案 content 形态: single/boolean -> {value}, multiple -> {values}, text -> {text}, image -> {images}
+// 答案 content 形态: single/boolean -> {value}, multiple -> {values}, text -> {text},
+// image -> {images}, file -> {files: [{url,name,size}]}
 function renderAnswer(a: SubmissionAnswer): string {
   const c = a.content
   if (c == null) return '—'
@@ -44,6 +47,7 @@ function renderAnswer(a: SubmissionAnswer): string {
   if (c.value != null && c.value !== '') return optionLabel(String(c.value), a.question_options)
   if (typeof c.text === 'string') return c.text.trim() || '—'
   if (Array.isArray(c.images)) return c.images.length ? `${c.images.length} 张图片` : '—'
+  if (Array.isArray(c.files)) return c.files.length ? `${c.files.length} 个文件` : '—'
   return '—'
 }
 
@@ -74,10 +78,13 @@ function AnswersDialog({ id, onClose }: { id: number; onClose: () => void }) {
             <p className="text-xs text-muted-foreground">提交时间 {fmt(d.created_at)}</p>
             {d.answers.map((a) => {
               const imgs = answerImages(a)
+              const files = answerAttachments(a)
               return (
                 <div key={a.id} className="rounded-lg border p-3">
                   <p className="text-xs font-medium text-muted-foreground">{a.question_title}</p>
-                  {imgs ? (
+                  {files ? (
+                    <AttachmentList files={files} />
+                  ) : imgs ? (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {imgs.map((src, i) => (
                         <a key={i} href={surveyImageUrl(src)} target="_blank" rel="noreferrer">
@@ -114,6 +121,7 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   date: '日期题',
   rating: '评分题',
   image: '图片题',
+  file: '文件题',
   // 分节说明块不收答案, 后端统计已把它整行排除; 这里保留标签只是为了类型完备
   section: '分节说明',
 }
@@ -121,6 +129,7 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
 // 后端对这些题型不产出任何可聚合结构 (distribution/numeric/samples 全空), 直接给出去处而非空白
 function noAggregateHint(type: QuestionType): string {
   if (type === 'image') return '图片题不做聚合统计, 请在「提交列表」里逐份查看'
+  if (type === 'file') return '文件题不做聚合统计, 请在「提交列表」里逐份下载查看'
   if (type === 'date') return '日期题不做聚合统计, 可导出 CSV 后自行分析'
   return '暂无有效作答'
 }

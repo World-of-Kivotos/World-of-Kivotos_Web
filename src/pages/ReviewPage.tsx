@@ -21,6 +21,8 @@ import { useAuthStore } from '@/stores/auth'
 import type { SubmissionStatus, SubmissionAnswer, QuestionOption } from '@/types/submission'
 import type { SurveyCategory } from '@/types/survey'
 import { surveyImageUrl } from '@/services/survey'
+import { answerAttachments } from '@/lib/attachments'
+import { AttachmentList } from '@/components/AttachmentList'
 
 function statusBadge(s: SubmissionStatus) {
   if (s === 'approved') return <Badge variant="success">已通过</Badge>
@@ -49,7 +51,8 @@ function optionLabel(value: string, options?: QuestionOption[] | null): string {
   return options?.find((o) => o.value === value)?.label ?? value
 }
 
-// 答案 content 实际形态: single/boolean -> {value}, multiple -> {values}, text -> {text}, image -> {images}。
+// 答案 content 实际形态: single/boolean -> {value}, multiple -> {values}, text -> {text},
+// image -> {images}, file -> {files: [{url,name,size}]}。
 // 按形态解包, 兼容历史扁平标量; 否则会渲染成 "[object Object]"。
 function renderAnswer(a: SubmissionAnswer): string {
   const c = a.content
@@ -66,6 +69,7 @@ function renderAnswer(a: SubmissionAnswer): string {
   if (c.value != null && c.value !== '') return optionLabel(String(c.value), a.question_options)
   if (typeof c.text === 'string') return c.text.trim() || '—'
   if (Array.isArray(c.images)) return c.images.length ? `${c.images.length} 张图片` : '—'
+  if (Array.isArray(c.files)) return c.files.length ? `${c.files.length} 个文件` : '—'
   return '—'
 }
 
@@ -133,10 +137,13 @@ function ReviewDialog({ id, onClose }: { id: number; onClose: () => void }) {
             <div className="max-h-[55vh] space-y-3 overflow-y-auto scrollbar-thin pr-1">
               {d.answers.map((a) => {
                 const imgs = answerImages(a)
+                const files = answerAttachments(a)
                 return (
                   <div key={a.id} className="rounded-lg border p-3">
                     <p className="text-xs font-medium text-muted-foreground">{a.question_title}</p>
-                    {imgs ? (
+                    {files ? (
+                      <AttachmentList files={files} />
+                    ) : imgs ? (
                       <div className="mt-2 flex flex-wrap gap-2">
                         {imgs.map((src, i) => (
                           <a key={i} href={surveyImageUrl(src)} target="_blank" rel="noreferrer" className="block">
